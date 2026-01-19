@@ -1,0 +1,51 @@
+.council-board {
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.board-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.members-grid {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* Hide scrollbar but allow scrolling */
+.members-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.members-grid::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.members-grid::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.members-grid::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* Responsive: wrap on smaller screens */
+@media (max-width: 768px) {
+  .members-grid {
+    flex-wrap: wrap;
+  }
+
+  .members-grid .council-member-card {
+    min-width: 100%;
+    max-width: 100%;
+  }
+}

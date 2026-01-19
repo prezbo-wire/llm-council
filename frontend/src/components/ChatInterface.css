@@ -161,3 +161,44 @@
   background: #ccc;
   border-color: #ccc;
 }
+
+/* New 2-column layout for council UI */
+.assistant-message.new-format {
+  width: 100%;
+}
+
+.council-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.council-left {
+  min-width: 0; /* Allow shrinking */
+}
+
+.council-right {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 200px);
+}
+
+/* Responsive: stack vertically on smaller screens */
+@media (max-width: 1200px) {
+  .council-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .council-right {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .council-layout {
+    gap: 16px;
+  }
+}

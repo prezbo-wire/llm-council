@@ -23,6 +23,7 @@ echo ""
 echo "✓ LLM Council is running!"
 echo "  Backend:  http://localhost:8001"
 echo "  Frontend: http://localhost:5173"
+echo "  LAN:      http://<HOST_IP>:5173"
 echo ""
 echo "Press Ctrl+C to stop both servers"
 

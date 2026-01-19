@@ -7,6 +7,10 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
 }) {
+  const visibleConversations = conversations.filter(
+    (conv) => conv.message_count > 0
+  );
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -17,10 +21,10 @@ export default function Sidebar({
       </div>
 
       <div className="conversation-list">
-        {conversations.length === 0 ? (
+        {visibleConversations.length === 0 ? (
           <div className="no-conversations">No conversations yet</div>
         ) : (
-          conversations.map((conv) => (
+          visibleConversations.map((conv) => (
             <div
               key={conv.id}
               className={`conversation-item ${

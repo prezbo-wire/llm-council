@@ -79,6 +79,8 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
+To access from another device on your LAN, open `http://<HOST_IP>:5173`. The frontend will call the backend at `http://<HOST_IP>:8001`, so make sure those ports are reachable.
+
 ## Tech Stack
 
 - **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
