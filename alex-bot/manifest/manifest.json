@@ -1,0 +1,73 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "0.1.0",
+  "id": "<generate-a-guid>",
+  "packageName": "com.example.alex",
+  "name": {
+    "short": "Alex",
+    "full": "Alex Meeting Copilot"
+  },
+  "description": {
+    "short": "Voice-aware Teams copilot",
+    "full": "Alex is a voice-enabled meeting copilot that can join calls, listen, and answer when addressed."
+  },
+  "developer": {
+    "name": "Your org",
+    "websiteUrl": "https://contoso.com",
+    "privacyUrl": "https://contoso.com/privacy",
+    "termsOfUseUrl": "https://contoso.com/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#235e7f",
+  "bots": [
+    {
+      "botId": "<azure-ad-app-client-id>",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat",
+        "meeting"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team",
+            "groupchat",
+            "meeting"
+          ],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show what Alex can do."
+            },
+            {
+              "title": "summary",
+              "description": "Summarize the last few minutes."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "validDomains": [
+    "<public-base-domain>"
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "webApplicationInfo": {
+    "id": "<azure-ad-app-client-id>",
+    "resource": "api://<public-base-domain>/botid-<azure-ad-app-client-id>"
+  },
+  "devicePermissions": [
+    "microphone"
+  ]
+}

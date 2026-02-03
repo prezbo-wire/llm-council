@@ -1,4 +1,4 @@
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../Markdown';
 import './FinalDecisionPanel.css';
 
 export default function FinalDecisionPanel({ decision, onRetry }) {
@@ -41,7 +41,7 @@ export default function FinalDecisionPanel({ decision, onRetry }) {
               <span className="streaming-label">Chairman is writing...</span>
             </div>
             <div className="decision-content markdown-content">
-              <ReactMarkdown>{content || ''}</ReactMarkdown>
+              <Markdown>{content || ''}</Markdown>
             </div>
           </div>
         )}
@@ -49,7 +49,7 @@ export default function FinalDecisionPanel({ decision, onRetry }) {
         {status === 'ready' && (
           <div className="ready-state">
             <div className="decision-content markdown-content">
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <Markdown>{content}</Markdown>
             </div>
           </div>
         )}

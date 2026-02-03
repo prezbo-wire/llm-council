@@ -1,4 +1,4 @@
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../Markdown';
 import './CouncilMemberCard.css';
 
 const STATUS_CONFIG = {
@@ -40,7 +40,7 @@ export default function CouncilMemberCard({ member }) {
           <div className="streaming-content">
             {progressText ? (
               <div className="progress-text markdown-content">
-                <ReactMarkdown>{progressText}</ReactMarkdown>
+                <Markdown>{progressText}</Markdown>
               </div>
             ) : (
               <div className="thinking-indicator">
@@ -57,7 +57,7 @@ export default function CouncilMemberCard({ member }) {
         {status === 'done' && (
           <div className="done-content">
             <div className="response-text markdown-content">
-              <ReactMarkdown>{progressText}</ReactMarkdown>
+              <Markdown>{progressText}</Markdown>
             </div>
           </div>
         )}

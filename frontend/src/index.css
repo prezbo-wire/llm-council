@@ -96,3 +96,36 @@ body {
   border-left: 4px solid #ddd;
   color: #666;
 }
+
+/* Markdown tables (rendered by Markdown.jsx) */
+.markdown-content .markdown-table-wrapper {
+  overflow-x: auto;
+  margin: 0 0 12px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-content table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #e0e0e0;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.markdown-content th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.markdown-content table p {
+  margin: 0;
+}
+
+.markdown-content table pre {
+  margin: 0;
+}

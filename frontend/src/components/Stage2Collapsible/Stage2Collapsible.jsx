@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../Markdown';
 import './Stage2Collapsible.css';
 
 function deAnonymizeText(text, labelToModel) {
@@ -114,9 +114,9 @@ export default function Stage2Collapsible({
                 {rankings[activeTab].model}
               </div>
               <div className="ranking-content markdown-content">
-                <ReactMarkdown>
+                <Markdown>
                   {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
-                </ReactMarkdown>
+                </Markdown>
               </div>
 
               {rankings[activeTab].parsed_ranking &&
