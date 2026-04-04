@@ -249,3 +249,22 @@
 .retry-button:hover {
   background: #357abd;
 }
+
+.export-button {
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+  border: 1px solid #4a90e2;
+  background: #fff;
+  color: #4a90e2;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.streaming-state .decision-content + .export-button,
+.ready-state .decision-content + .export-button {
+  margin-top: 12px;
+  margin-bottom: 0;
+}

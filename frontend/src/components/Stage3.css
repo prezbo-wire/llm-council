@@ -23,3 +23,20 @@
   line-height: 1.7;
   font-size: 15px;
 }
+
+.export-button {
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+  border: 1px solid #2d8a2d;
+  background: #fff;
+  color: #2d8a2d;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.final-text + .export-button {
+  margin-top: 12px;
+  margin-bottom: 0;
+}

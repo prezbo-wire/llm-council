@@ -1,5 +1,6 @@
 .chat-interface {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -9,7 +10,9 @@
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 24px;
+  min-width: 0;
 }
 
 .empty-state {
