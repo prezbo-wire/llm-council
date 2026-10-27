@@ -1,388 +1,254 @@
-"""FastAPI backend for LLM Council."""
+"""FastAPI backend for llm-council (Mese ARCHITECTURE §I.5, §I.6, §I.8).
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any
-import uuid
-import json
+Run it from the project root with ``uv run python -m backend.main [--host H] [--port P]``; it binds
+``COUNCIL_HOST:COUNCIL_PORT`` (default ``0.0.0.0:8001``). The Mese client is opened and closed by the
+app lifespan. CORS allows exactly ``COUNCIL_ALLOWED_ORIGINS`` without credentials, and the ``Host``
+header must be one of :attr:`Settings.allowed_hosts` (400 ``invalid_host`` otherwise), which closes the
+DNS-rebinding path around CORS.
+"""
+from __future__ import annotations
+
+import argparse
 import asyncio
+import logging
+import uuid
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional
 
-from . import storage
-from .council import (
-    run_full_council, generate_conversation_title,
-    stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final,
-    stage1_collect_responses_stream, stage2_collect_rankings_stream, stage3_synthesize_final_stream,
-    calculate_aggregate_rankings
-)
-from .config import MODEL_DISPLAY_NAMES
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.datastructures import Headers
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-app = FastAPI(title="LLM Council API")
+from . import api_council
+from .app_state import (AppContext, conversation_not_found, council_for_send, get_ctx, load_catalog,
+                        resolve_preset_council, validate_council)
+from .catalog import CatalogIndex
+from .config import SETTINGS, Settings, host_of
+from .contracts import CouncilConfigDict
+from .council import RunnerDeps, TaskTracker, run_council
+from .council import events as ev
+from .mese_client import MeseClient
+from .presets import PresetStore
+from .schemas import CreateConversationRequest, SendMessageRequest
+from .storage import DEFAULT_TITLE, ConversationStore, council_record
 
-# Enable CORS for local/LAN development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https?://.*:(5173|3000)",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+log = logging.getLogger("backend")
 
+#: A ``: keepalive`` comment is sent after this much silence (cold local loads can be quiet for minutes).
+KEEPALIVE_INTERVAL_S = 15.0
+SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+CORS_HEADERS = ["Content-Type", "Accept"]
 
-class CreateConversationRequest(BaseModel):
-    """Request to create a new conversation."""
-    pass
+_END = object()
+_KEEPALIVE = object()
 
-
-class SendMessageRequest(BaseModel):
-    """Request to send a message in a conversation."""
-    content: str
-
-
-class ConversationMetadata(BaseModel):
-    """Conversation metadata for list view."""
-    id: str
-    created_at: str
-    title: str
-    message_count: int
+router = APIRouter()
 
 
-class Conversation(BaseModel):
-    """Full conversation with all messages."""
-    id: str
-    created_at: str
-    title: str
-    messages: List[Dict[str, Any]]
+class HostAllowlistMiddleware:
+    """Answers 400 ``invalid_host`` unless the ``Host`` header names an allowed host.
+
+    CORS does not apply once a DNS-rebinding page is same-origin with this port; its ``Host`` header
+    still carries the attacker's name, so checking it keeps such a page away from the API.
+    """
+
+    def __init__(self, app: ASGIApp, allowed_hosts: FrozenSet[str]) -> None:
+        self.app = app
+        self.allowed_hosts = allowed_hosts
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            raw = Headers(scope=scope).get("host", "")
+            if host_of(raw) not in self.allowed_hosts:
+                log.warning("rejected a request for Host %r (add its origin to COUNCIL_ALLOWED_ORIGINS)", raw[:100])
+                detail = {"code": "invalid_host", "message": f"Host {raw[:100]!r} is not allowed"}
+                await JSONResponse({"detail": detail}, status_code=400)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
-@app.get("/")
-async def root():
-    """Health check endpoint."""
+class SSEResponse(StreamingResponse):
+    """A StreamingResponse that always closes its generator, even when the client vanished mid-send.
+
+    Closing the generator runs its ``finally``, which cancels every council task and so closes every
+    in-flight Mese stream.
+    """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            aclose = getattr(self.body_iterator, "aclose", None)
+            if aclose is not None:
+                await aclose()
+
+
+async def council_event_stream(query: str, council: CouncilConfigDict, conversation_id: str, deps: RunnerDeps, *,
+                               is_first_message: bool, keepalive_s: float = KEEPALIVE_INTERVAL_S) -> AsyncIterator[str]:
+    """Runs the council and yields its §I.6 events as SSE frames from one queue the runner feeds."""
+    queue: "asyncio.Queue[Any]" = asyncio.Queue()
+    tracker = TaskTracker()
+
+    async def emit(event: Dict[str, Any]) -> None:
+        queue.put_nowait(event)
+
+    async def run() -> None:
+        try:
+            await run_council(query, council, conversation_id, emit, deps=deps, is_first_message=is_first_message)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - reported to the client as an `error` event
+            log.exception("council run failed for conversation %s", conversation_id)
+            queue.put_nowait(ev.error(f"{type(exc).__name__}: {exc}"[:500]))
+        finally:
+            queue.put_nowait(_END)
+
+    async def heartbeat() -> None:
+        while True:
+            await asyncio.sleep(keepalive_s)
+            queue.put_nowait(_KEEPALIVE)
+
+    tracker.spawn(run(), name=f"council:{conversation_id}")
+    tracker.spawn(heartbeat(), name=f"keepalive:{conversation_id}")
+    try:
+        while True:
+            item = await queue.get()
+            if item is _END:
+                break
+            yield ": keepalive\n\n" if item is _KEEPALIVE else ev.to_sse(item)
+    finally:
+        # Client gone or run finished: cancel and await every task (this closes the Mese streams).
+        await tracker.cancel_all()
+
+
+def _require_conversation(ctx: AppContext, conversation_id: str) -> Dict[str, Any]:
+    conversation = ctx.store.get(conversation_id)
+    if conversation is None:
+        raise conversation_not_found()
+    return conversation
+
+
+def _needs_title(conversation: Dict[str, Any]) -> bool:
+    """A title is generated while the conversation has the default one and no title call has finished yet.
+
+    A first turn that was cancelled or crashed never reached its title call, so the next turn names the
+    conversation. A title call that finished but failed (``title_attempted``) is not repeated: otherwise every
+    later turn would pay for another title call and be stored as ``partial``.
+    """
+    title = conversation.get("title") or DEFAULT_TITLE
+    return title == DEFAULT_TITLE and not conversation.get("title_attempted")
+
+
+def _deps(ctx: AppContext, catalog: CatalogIndex) -> RunnerDeps:
+    return RunnerDeps(client=ctx.client, store=ctx.store, catalog=catalog, title_model=ctx.settings.title_model)
+
+
+@router.get("/")
+async def root() -> Dict[str, str]:
     return {"status": "ok", "service": "LLM Council API"}
 
 
-@app.get("/api/conversations", response_model=List[ConversationMetadata])
-async def list_conversations():
-    """List all conversations (metadata only)."""
-    return storage.list_conversations()
+@router.get("/api/conversations")
+async def list_conversations(request: Request) -> List[Dict[str, Any]]:
+    return get_ctx(request).store.list()
 
 
-@app.post("/api/conversations", response_model=Conversation)
-async def create_conversation(request: CreateConversationRequest):
-    """Create a new conversation."""
-    conversation_id = str(uuid.uuid4())
-    conversation = storage.create_conversation(conversation_id)
-    return conversation
+@router.post("/api/conversations")
+async def create_conversation(request: Request, body: Optional[CreateConversationRequest] = None) -> Dict[str, Any]:
+    """Creates a conversation, optionally with a council (or a preset resolved into one)."""
+    ctx = get_ctx(request)
+    body = body or CreateConversationRequest()
+    council = None
+    if body.council is not None or body.preset_id is not None:
+        catalog = await load_catalog(ctx)
+        if body.council is not None:  # a council wins over preset_id
+            checked = validate_council(list(body.council.members), body.council.chairman, catalog)
+        else:
+            checked = resolve_preset_council(ctx, body.preset_id or "", catalog)
+        if checked is not None:
+            council = council_record(checked["members"], checked["chairman"], body.preset_id)
+    return ctx.store.create(str(uuid.uuid4()), council)
 
 
-@app.get("/api/conversations/{conversation_id}", response_model=Conversation)
-async def get_conversation(conversation_id: str):
-    """Get a specific conversation with all its messages."""
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+@router.get("/api/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str, request: Request) -> Dict[str, Any]:
+    return _require_conversation(get_ctx(request), conversation_id)
 
 
-@app.post("/api/conversations/{conversation_id}/message")
-async def send_message(conversation_id: str, request: SendMessageRequest):
-    """
-    Send a message and run the 3-stage council process.
-    Returns the complete response with all stages.
-    """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    # Check if this is the first message
-    is_first_message = len(conversation["messages"]) == 0
-
-    # Add user message
-    storage.add_user_message(conversation_id, request.content)
-
-    # If this is the first message, generate a title
-    if is_first_message:
-        title = await generate_conversation_title(request.content)
-        storage.update_conversation_title(conversation_id, title)
-
-    # Run the 3-stage council process
-    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
-    )
-
-    # Add assistant message with all stages
-    storage.add_assistant_message(
-        conversation_id,
-        stage1_results,
-        stage2_results,
-        stage3_result
-    )
-
-    # Return the complete response with metadata
-    return {
-        "stage1": stage1_results,
-        "stage2": stage2_results,
-        "stage3": stage3_result,
-        "metadata": metadata
-    }
+@router.post("/api/conversations/{conversation_id}/message")
+async def send_message(conversation_id: str, body: SendMessageRequest, request: Request) -> Dict[str, Any]:
+    """Runs the full council and returns ``{stage1, stage2, stage3, metadata, failures, usage}``."""
+    ctx = get_ctx(request)
+    conversation = _require_conversation(ctx, conversation_id)
+    council, catalog = await council_for_send(ctx, conversation, body.council.as_dict() if body.council else None)
+    is_first_message = _needs_title(conversation)
+    ctx.store.add_user_message(conversation_id, body.content)
+    result = await run_council(body.content, council, conversation_id, deps=_deps(ctx, catalog),
+                               is_first_message=is_first_message)
+    return result.to_response()
 
 
-@app.post("/api/conversations/{conversation_id}/message/stream")
-async def send_message_stream(conversation_id: str, request: SendMessageRequest):
-    """
-    Send a message and stream the 3-stage council process.
-    Returns Server-Sent Events as each stage completes.
-    """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+@router.post("/api/conversations/{conversation_id}/message/stream/v2")
+async def send_message_stream_v2(conversation_id: str, body: SendMessageRequest, request: Request) -> SSEResponse:
+    """Streams the council run as §I.6 events. Validation errors are real HTTP statuses (before the stream)."""
+    ctx = get_ctx(request)
+    conversation = _require_conversation(ctx, conversation_id)
+    council, catalog = await council_for_send(ctx, conversation, body.council.as_dict() if body.council else None)
+    is_first_message = _needs_title(conversation)
+    ctx.store.add_user_message(conversation_id, body.content)
+    stream = council_event_stream(body.content, council, conversation_id, _deps(ctx, catalog),
+                                  is_first_message=is_first_message, keepalive_s=KEEPALIVE_INTERVAL_S)
+    return SSEResponse(stream, media_type="text/event-stream", headers=SSE_HEADERS)
 
-    # Check if this is the first message
-    is_first_message = len(conversation["messages"]) == 0
 
-    async def event_generator():
+def create_app(settings: Optional[Settings] = None, *, mese_client: Optional[MeseClient] = None) -> FastAPI:
+    """Builds the app. Tests pass ``settings`` and a ``mese_client`` backed by a mock transport."""
+    settings = settings or SETTINGS
+    ctx = AppContext(settings=settings, store=ConversationStore(settings.conversations_dir),
+                     presets=PresetStore(settings.presets_path), mese=mese_client)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        owned = ctx.mese is None
+        if owned:
+            ctx.mese = MeseClient(settings.mese_url, settings.mese_api_key)
+        log.info("llm-council using %s", settings.describe())
+        if not settings.token_set:
+            log.warning("MESE_API_KEY is not set: every Mese call will be rejected. Add it to .env.")
         try:
-            # Add user message
-            storage.add_user_message(conversation_id, request.content)
+            yield
+        finally:
+            if owned and ctx.mese is not None:
+                await ctx.mese.aclose()
+                ctx.mese = None
 
-            # Start title generation in parallel (don't await yet)
-            title_task = None
-            if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
-
-            # Stage 1: Collect responses
-            yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
-
-            # Stage 2: Collect rankings
-            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
-            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
-
-            # Stage 3: Synthesize final answer
-            yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
-            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
-
-            # Wait for title generation if it was started
-            if title_task:
-                title = await title_task
-                storage.update_conversation_title(conversation_id, title)
-                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
-
-            # Save complete assistant message
-            storage.add_assistant_message(
-                conversation_id,
-                stage1_results,
-                stage2_results,
-                stage3_result
-            )
-
-            # Send completion event
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-
-        except Exception as e:
-            # Send error event
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
-    )
+    app = FastAPI(title="LLM Council API", lifespan=lifespan)
+    app.state.ctx = ctx
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.allowed_origins), allow_credentials=False,
+                       allow_methods=CORS_METHODS, allow_headers=CORS_HEADERS)
+    if settings.allowed_hosts is not None:  # added last, so it runs first (before CORS)
+        app.add_middleware(HostAllowlistMiddleware, allowed_hosts=settings.allowed_hosts)
+    app.include_router(api_council.router)
+    app.include_router(router)
+    return app
 
 
-@app.post("/api/conversations/{conversation_id}/message/stream/v2")
-async def send_message_stream_v2(conversation_id: str, request: SendMessageRequest):
-    """
-    Send a message with per-model streaming updates (new UI format).
-    Returns Server-Sent Events with granular member progress.
-    """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+app = create_app()
 
-    # Check if this is the first message
-    is_first_message = len(conversation["messages"]) == 0
 
-    async def event_generator():
-        try:
-            # Add user message
-            storage.add_user_message(conversation_id, request.content)
+def main(argv: Optional[List[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="llm-council backend (a Mese client)")
+    parser.add_argument("--host", default=SETTINGS.council_host, help="bind address (COUNCIL_HOST)")
+    parser.add_argument("--port", type=int, default=SETTINGS.council_port, help="bind port (COUNCIL_PORT)")
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    import uvicorn
 
-            # Start title generation in parallel
-            title_task = None
-            if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
-
-            # Stage 1: Stream individual responses
-            async def on_model_queued(model_id: str):
-                display_name = MODEL_DISPLAY_NAMES.get(model_id, model_id.split('/')[-1])
-                yield f"data: {json.dumps({'type': 'member_queued', 'memberId': model_id, 'displayName': display_name})}\n\n"
-
-            async def on_model_streaming(model_id: str, delta_text: str):
-                yield f"data: {json.dumps({'type': 'member_streaming', 'memberId': model_id, 'deltaText': delta_text})}\n\n"
-
-            async def on_model_complete(model_id: str, response: str, latency_ms: int):
-                yield f"data: {json.dumps({'type': 'member_complete', 'memberId': model_id, 'response': response, 'latencyMs': latency_ms})}\n\n"
-
-            async def on_model_error(model_id: str, message: str):
-                yield f"data: {json.dumps({'type': 'member_error', 'memberId': model_id, 'message': message})}\n\n"
-
-            # We need to use a queue to collect SSE events from async callbacks
-            event_queue = asyncio.Queue()
-
-            async def queue_event(event_data: str):
-                await event_queue.put(event_data)
-
-            async def queued_model_queued(model_id: str):
-                display_name = MODEL_DISPLAY_NAMES.get(model_id, model_id.split('/')[-1])
-                await queue_event(f"data: {json.dumps({'type': 'member_queued', 'memberId': model_id, 'displayName': display_name})}\n\n")
-
-            async def queued_model_streaming(model_id: str, delta_text: str):
-                await queue_event(f"data: {json.dumps({'type': 'member_streaming', 'memberId': model_id, 'deltaText': delta_text})}\n\n")
-
-            async def queued_model_complete(model_id: str, response: str, latency_ms: int):
-                await queue_event(f"data: {json.dumps({'type': 'member_complete', 'memberId': model_id, 'response': response, 'latencyMs': latency_ms})}\n\n")
-
-            async def queued_model_error(model_id: str, message: str):
-                await queue_event(f"data: {json.dumps({'type': 'member_error', 'memberId': model_id, 'message': message})}\n\n")
-
-            # Run stage 1 in a task and drain events from queue
-            stage1_task = asyncio.create_task(
-                stage1_collect_responses_stream(
-                    request.content,
-                    queued_model_queued,
-                    queued_model_streaming,
-                    queued_model_complete,
-                    queued_model_error
-                )
-            )
-
-            # Drain events while stage 1 runs
-            while not stage1_task.done():
-                try:
-                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                    yield event
-                except asyncio.TimeoutError:
-                    continue
-
-            # Get remaining events and result
-            while not event_queue.empty():
-                yield await event_queue.get()
-
-            stage1_results = stage1_task.result()
-
-            # Stage 1 complete event (for legacy compatibility)
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
-
-            # Stage 2: Collect rankings
-            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-
-            async def on_stage2_model_complete(model_id: str, parsed_ranking: list):
-                await queue_event(f"data: {json.dumps({'type': 'stage2_model_complete', 'memberId': model_id, 'ranking': parsed_ranking})}\n\n")
-
-            stage2_task = asyncio.create_task(
-                stage2_collect_rankings_stream(
-                    request.content,
-                    stage1_results,
-                    on_stage2_model_complete
-                )
-            )
-
-            # Drain events while stage 2 runs
-            while not stage2_task.done():
-                try:
-                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                    yield event
-                except asyncio.TimeoutError:
-                    continue
-
-            while not event_queue.empty():
-                yield await event_queue.get()
-
-            stage2_results, label_to_model = stage2_task.result()
-            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
-
-            # Stage 3: Final synthesis with streaming
-            yield f"data: {json.dumps({'type': 'final_generating'})}\n\n"
-
-            async def on_final_streaming(delta_text: str):
-                await queue_event(f"data: {json.dumps({'type': 'final_streaming', 'deltaText': delta_text})}\n\n")
-
-            stage3_task = asyncio.create_task(
-                stage3_synthesize_final_stream(
-                    request.content,
-                    stage1_results,
-                    stage2_results,
-                    on_final_streaming
-                )
-            )
-
-            # Drain events while stage 3 runs
-            while not stage3_task.done():
-                try:
-                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                    yield event
-                except asyncio.TimeoutError:
-                    continue
-
-            while not event_queue.empty():
-                yield await event_queue.get()
-
-            stage3_result = stage3_task.result()
-
-            yield f"data: {json.dumps({'type': 'final_ready', 'content': stage3_result['response'], 'latencyMs': stage3_result.get('latency_ms', 0)})}\n\n"
-
-            # Also emit stage3_complete for legacy compatibility
-            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
-
-            # Wait for title generation
-            if title_task:
-                title = await title_task
-                storage.update_conversation_title(conversation_id, title)
-                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
-
-            # Save complete assistant message
-            storage.add_assistant_message(
-                conversation_id,
-                stage1_results,
-                stage2_results,
-                stage3_result
-            )
-
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
-    )
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    main()

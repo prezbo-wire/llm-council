@@ -1,0 +1,50 @@
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 16px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  text-transform: none;
+}
+
+.model-badge-cloud {
+  background: #e8f4fd;
+  color: #2a7ae2;
+  border-color: #d0e7ff;
+}
+
+.model-badge-local {
+  background: #e8f8ef;
+  color: #1e8c4d;
+  border-color: #c8ecd7;
+}
+
+.model-badge-ft {
+  background: #f3e8fb;
+  color: #8e44ad;
+  border-color: #e3cdf3;
+}
+
+.model-badge-legacy {
+  background: #f0f0f0;
+  color: #777;
+  border-color: #e0e0e0;
+}
+
+.model-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.model-label-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

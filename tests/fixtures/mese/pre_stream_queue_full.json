@@ -1,0 +1,41 @@
+{
+  "description": "Pre-flight queue admission failure: 503 queue_full with a Retry-After header (and mese.retry_after_s).",
+  "requestId": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f08",
+  "request": {
+    "model": "spark/gpt-oss:120b",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 2+2?"
+      }
+    ],
+    "stream": true,
+    "mese": {
+      "client": "llm-council",
+      "run_id": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "conversation_id": "5b0c3e3a-1d2f-4c5b-9a8e-7f6d5c4b3a21",
+      "stage": "stage1",
+      "events": true
+    }
+  },
+  "status": 503,
+  "headers": {
+    "content-type": "application/json",
+    "x-mese-request-id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f08",
+    "retry-after": "30"
+  },
+  "body": {
+    "error": {
+      "message": "queue for node 'spark' is full (32 waiting)",
+      "type": "server_error",
+      "code": "queue_full",
+      "param": null,
+      "mese": {
+        "request_id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f08",
+        "retryable": true,
+        "phase": "admission",
+        "retry_after_s": 30
+      }
+    }
+  }
+}

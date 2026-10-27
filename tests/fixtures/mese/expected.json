@@ -1,0 +1,274 @@
+{
+  "about": "Normative MeseClient.stream_chat outcomes (\u00a7I.2) for each fixture. 'statuses' is the exact sequence of on_status payloads; 'deltas' the on_delta texts. latency_ms is not specified here (client may measure it).",
+  "statusMapping": {
+    "queued frame": {
+      "state": "queued",
+      "position": "<position>",
+      "node_id": "<node_id>",
+      "reason": "<reason>"
+    },
+    "loading frame": {
+      "state": "loading",
+      "node_id": "<node_id>"
+    },
+    "started frame": {
+      "state": "started",
+      "attempt": "<attempt>"
+    },
+    "retrying frame": {
+      "state": "retrying",
+      "attempt": "<attempt>",
+      "reason": "<reason>"
+    },
+    "first reasoning delta": {
+      "state": "thinking"
+    }
+  },
+  "cases": {
+    "plain.sse": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "ok": true,
+      "content": "2 + 2 = 4.",
+      "deltas": [
+        "2 + 2 = ",
+        "4."
+      ],
+      "finish_reason": "stop",
+      "error_code": null,
+      "error_message": null,
+      "retryable": false,
+      "cost_usd": 0.00016,
+      "ttft_ms": 850,
+      "usage": {
+        "prompt_tokens": 20,
+        "completion_tokens": 12,
+        "reasoning_tokens": 0
+      },
+      "warnings": [],
+      "statuses": [
+        {
+          "state": "thinking"
+        }
+      ],
+      "resolved": {
+        "model": "anthropic/claude-sonnet-5-5",
+        "kind": "cloud",
+        "provider_id": "anthropic",
+        "node_id": null,
+        "host_id": null,
+        "runtime": null,
+        "upstream_model": "claude-sonnet-5-5"
+      }
+    },
+    "events.sse": {
+      "model": "spark/qwen3.8:27b",
+      "ok": true,
+      "content": "The answer is 4.",
+      "deltas": [
+        "The answer is",
+        " 4."
+      ],
+      "finish_reason": "stop",
+      "error_code": null,
+      "error_message": null,
+      "retryable": false,
+      "cost_usd": 0,
+      "ttft_ms": 900,
+      "usage": {
+        "prompt_tokens": 812,
+        "completion_tokens": 403,
+        "reasoning_tokens": 120
+      },
+      "warnings": [],
+      "statuses": [
+        {
+          "state": "queued",
+          "position": 2,
+          "node_id": "spark",
+          "reason": "memory"
+        },
+        {
+          "state": "loading",
+          "node_id": "spark"
+        },
+        {
+          "state": "started",
+          "attempt": 1
+        },
+        {
+          "state": "thinking"
+        }
+      ],
+      "resolved": {
+        "model": "spark/qwen3.8:27b",
+        "kind": "local",
+        "provider_id": null,
+        "node_id": "spark",
+        "host_id": "spark",
+        "runtime": "ollama",
+        "upstream_model": "qwen3.8:27b"
+      }
+    },
+    "include_usage.sse": {
+      "model": "openai/gpt-6.1-sol",
+      "ok": true,
+      "content": "Four.",
+      "deltas": [
+        "Four."
+      ],
+      "finish_reason": "stop",
+      "error_code": null,
+      "error_message": null,
+      "retryable": false,
+      "cost_usd": 0.00088,
+      "ttft_ms": 1500,
+      "usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 64,
+        "reasoning_tokens": 48
+      },
+      "warnings": [],
+      "statuses": []
+    },
+    "midstream_error.sse": {
+      "model": "xai/grok-4.7",
+      "ok": false,
+      "content": "Partial answer",
+      "deltas": [
+        "Partial answer"
+      ],
+      "finish_reason": "error",
+      "error_code": "upstream_timeout",
+      "error_message": "upstream produced no data for 120s",
+      "retryable": true,
+      "cost_usd": 0.000104,
+      "ttft_ms": 2000,
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 4,
+        "reasoning_tokens": 0
+      },
+      "warnings": [
+        "usage_estimated"
+      ],
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        }
+      ]
+    },
+    "content_filter.sse": {
+      "model": "anthropic/claude-opus-5-5",
+      "ok": false,
+      "content": "",
+      "deltas": [],
+      "finish_reason": "content_filter",
+      "error_code": "content_filtered",
+      "error_message": "declined by provider (cyber)",
+      "retryable": false,
+      "cost_usd": 0.00014,
+      "ttft_ms": null,
+      "usage": {
+        "prompt_tokens": 25,
+        "completion_tokens": 2,
+        "reasoning_tokens": 0
+      },
+      "warnings": [
+        "refusal:cyber"
+      ],
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        }
+      ]
+    },
+    "events_retry.sse": {
+      "model": "openai/gpt-6.1-sol",
+      "ok": true,
+      "content": "Recovered answer.",
+      "deltas": [
+        "Recovered answer."
+      ],
+      "finish_reason": "stop",
+      "error_code": null,
+      "error_message": null,
+      "retryable": false,
+      "cost_usd": 0.0001,
+      "ttft_ms": 1100,
+      "usage": {
+        "prompt_tokens": 30,
+        "completion_tokens": 4,
+        "reasoning_tokens": 0
+      },
+      "warnings": [],
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        },
+        {
+          "state": "retrying",
+          "attempt": 2,
+          "reason": "upstream_error"
+        },
+        {
+          "state": "started",
+          "attempt": 2
+        }
+      ]
+    },
+    "pre_stream_error.json": {
+      "model": "google/gemini-4-argon",
+      "ok": false,
+      "content": "",
+      "deltas": [],
+      "finish_reason": null,
+      "error_code": "credential_missing",
+      "error_message": "no API key configured for provider 'google'; add it in Mese admin",
+      "retryable": false,
+      "cost_usd": null,
+      "statuses": []
+    },
+    "pre_stream_queue_full.json": {
+      "model": "spark/gpt-oss:120b",
+      "ok": false,
+      "content": "",
+      "deltas": [],
+      "finish_reason": null,
+      "error_code": "queue_full",
+      "error_message": "queue for node 'spark' is full (32 waiting)",
+      "retryable": true,
+      "cost_usd": null,
+      "statuses": []
+    },
+    "truncated_no_finish.sse": {
+      "model": "xai/grok-4.7",
+      "ok": false,
+      "content": "Partial answer",
+      "deltas": [
+        "Partial answer"
+      ],
+      "finish_reason": null,
+      "error_code": "upstream_error",
+      "retryable": true,
+      "cost_usd": null,
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        }
+      ]
+    },
+    "<connect error>": {
+      "model": "any/model",
+      "ok": false,
+      "content": "",
+      "finish_reason": null,
+      "error_code": "mese_unreachable",
+      "retryable": true,
+      "cost_usd": null
+    }
+  }
+}

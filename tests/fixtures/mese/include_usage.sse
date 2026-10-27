@@ -1,0 +1,10 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f03
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f03","object":"chat.completion.chunk","created":1793000000,"model":"openai/gpt-6.1-sol","choices":[{"index":0,"delta":{"role":"assistant","content":"Four."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f03","object":"chat.completion.chunk","created":1793000000,"model":"openai/gpt-6.1-sol","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":120,"completion_tokens":64,"total_tokens":184,"prompt_tokens_details":{"cached_tokens":100},"completion_tokens_details":{"reasoning_tokens":48},"cost":0.00088},"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f03","status":"ok","resolved":{"model":"openai/gpt-6.1-sol","kind":"cloud","provider_id":"openai","node_id":null,"host_id":null,"runtime":null,"upstream_model":"gpt-6.1-sol"},"cost_usd":0.00088,"cost_source":"computed","usage_source":"upstream","queue_ms":0,"load_ms":0,"ttft_ms":1500,"latency_ms":3200,"attempts":1,"dropped_params":["presence_penalty","user"],"warnings":[]}}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f03","object":"chat.completion.chunk","created":1793000000,"model":"openai/gpt-6.1-sol","choices":[],"usage":{"prompt_tokens":120,"completion_tokens":64,"total_tokens":184,"prompt_tokens_details":{"cached_tokens":100},"completion_tokens_details":{"reasoning_tokens":48},"cost":0.00088}}
+
+data: [DONE]
+

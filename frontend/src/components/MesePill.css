@@ -1,0 +1,142 @@
+.mese-pill-wrap {
+  position: relative;
+}
+
+.mese-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mese-pill:hover {
+  border-color: #4a90e2;
+}
+
+.mese-pill-name {
+  font-weight: 600;
+}
+
+.mese-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #bbb;
+  flex-shrink: 0;
+}
+
+.mese-pill-label {
+  color: #666;
+}
+
+.tone-ok .mese-pill-dot { background: #27ae60; }
+.tone-warn .mese-pill-dot { background: #f0b429; }
+.tone-error .mese-pill-dot { background: #e74c3c; }
+.tone-unknown .mese-pill-dot { background: #bbb; }
+
+.mese-pill.tone-error {
+  border-color: #f3c4c4;
+  background: #fff7f7;
+}
+
+.mese-pill.tone-error .mese-pill-label {
+  color: #e74c3c;
+}
+
+.mese-pill.tone-warn {
+  border-color: #f5e3b5;
+  background: #fffaf0;
+}
+
+.mese-pill.tone-warn .mese-pill-label {
+  color: #b7791f;
+}
+
+.mese-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  color: #333;
+  z-index: 20;
+}
+
+.mese-popover-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.mese-popover-version {
+  margin-left: auto;
+  font-weight: 400;
+  color: #999;
+  font-family: monospace;
+}
+
+.mese-popover-detail {
+  margin-bottom: 8px;
+  color: #a94442;
+}
+
+.mese-popover-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.mese-popover-label {
+  color: #888;
+  flex-shrink: 0;
+}
+
+.mese-popover-value {
+  text-align: right;
+  word-break: break-all;
+}
+
+.mese-popover-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.mese-admin-link {
+  color: #4a90e2;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.mese-admin-link:hover {
+  text-decoration: underline;
+}
+
+.mese-refresh {
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+}

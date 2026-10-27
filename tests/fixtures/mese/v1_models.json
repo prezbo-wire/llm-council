@@ -1,0 +1,552 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "anthropic/claude-opus-5-5",
+      "object": "model",
+      "created": 0,
+      "owned_by": "anthropic",
+      "name": "Claude Opus 5.5",
+      "context_length": 1000000,
+      "pricing": {
+        "prompt": "0.000004",
+        "completion": "0.00002",
+        "input_cache_read": "0.0000002"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "stop",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "Claude Opus 5.5",
+        "provider": {
+          "id": "anthropic",
+          "name": "Anthropic"
+        },
+        "node": null,
+        "upstream_model": "claude-opus-5-5",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier",
+          "default_chair"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [
+          "anthropic/claude-opus-5.5"
+        ],
+        "verified": true,
+        "price_verified": true,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-5-5",
+      "object": "model",
+      "created": 0,
+      "owned_by": "anthropic",
+      "name": "Claude Sonnet 5.5",
+      "context_length": 1000000,
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.00001",
+        "input_cache_read": "0.0000002"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "stop",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "Claude Sonnet 5.5",
+        "provider": {
+          "id": "anthropic",
+          "name": "Anthropic"
+        },
+        "node": null,
+        "upstream_model": "claude-sonnet-5-5",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [
+          "anthropic/claude-sonnet-5.5"
+        ],
+        "verified": true,
+        "price_verified": true,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "anthropic/claude-haiku-5-5",
+      "object": "model",
+      "created": 0,
+      "owned_by": "anthropic",
+      "name": "Claude Haiku 5.5",
+      "context_length": 1000000,
+      "pricing": {
+        "prompt": "0.0000001",
+        "completion": "0.0000005"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "stop",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "Claude Haiku 5.5",
+        "provider": {
+          "id": "anthropic",
+          "name": "Anthropic"
+        },
+        "node": null,
+        "upstream_model": "claude-haiku-5-5",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "fast"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [
+          "anthropic/claude-haiku-5.5"
+        ],
+        "verified": true,
+        "price_verified": true,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "openai/gpt-6.1-sol",
+      "object": "model",
+      "created": 0,
+      "owned_by": "openai",
+      "name": "GPT-6.1 Sol",
+      "context_length": null,
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.00001"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "GPT-6.1 Sol",
+        "provider": {
+          "id": "openai",
+          "name": "OpenAI"
+        },
+        "node": null,
+        "upstream_model": "gpt-6.1-sol",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": false,
+        "price_verified": false,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "google/gemini-4-argon",
+      "object": "model",
+      "created": 0,
+      "owned_by": "google",
+      "name": "Gemini 4 Argon",
+      "context_length": null,
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.00001"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "Gemini 4 Argon",
+        "provider": {
+          "id": "google",
+          "name": "Google Gemini"
+        },
+        "node": null,
+        "upstream_model": "gemini-4-argon",
+        "available": false,
+        "unavailable_reason": "no_credential",
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": false,
+        "price_verified": false,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "xai/grok-4.7",
+      "object": "model",
+      "created": 0,
+      "owned_by": "xai",
+      "name": "Grok 4.7",
+      "context_length": null,
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.000006"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "Grok 4.7",
+        "provider": {
+          "id": "xai",
+          "name": "xAI"
+        },
+        "node": null,
+        "upstream_model": "grok-4.7",
+        "available": false,
+        "unavailable_reason": "circuit_open",
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": false,
+        "price_verified": false,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "minimax/minimax-m3",
+      "object": "model",
+      "created": 0,
+      "owned_by": "minimax",
+      "name": "MiniMax M3",
+      "context_length": null,
+      "pricing": {
+        "prompt": "0.0000003",
+        "completion": "0.0000012"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "MiniMax M3",
+        "provider": {
+          "id": "minimax",
+          "name": "MiniMax"
+        },
+        "node": null,
+        "upstream_model": "minimax-m3",
+        "available": false,
+        "unavailable_reason": "provider_disabled",
+        "load_state": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": false,
+        "price_verified": false,
+        "source": "seed"
+      }
+    },
+    {
+      "id": "spark/qwen3.8:27b",
+      "object": "model",
+      "created": 0,
+      "owned_by": "spark",
+      "name": "Qwen3.8 27B",
+      "context_length": 65536,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "local",
+        "display_name": "Qwen3.8 27B",
+        "provider": null,
+        "node": {
+          "id": "spark",
+          "name": "DGX Spark · Ollama",
+          "runtime": "ollama",
+          "host_id": "spark"
+        },
+        "upstream_model": "qwen3.8:27b",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": "loaded",
+        "size_bytes": 18253611008,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "source": "discovered"
+      }
+    },
+    {
+      "id": "spark/gpt-oss:120b",
+      "object": "model",
+      "created": 0,
+      "owned_by": "spark",
+      "name": "gpt-oss 120B",
+      "context_length": 131072,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "local",
+        "display_name": "gpt-oss 120B",
+        "provider": null,
+        "node": {
+          "id": "spark",
+          "name": "DGX Spark · Ollama",
+          "runtime": "ollama",
+          "host_id": "spark"
+        },
+        "upstream_model": "gpt-oss:120b",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": "unloaded",
+        "size_bytes": 69793218560,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "local_chair"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "source": "user"
+      }
+    },
+    {
+      "id": "mini1/glimmer:30b",
+      "object": "model",
+      "created": 0,
+      "owned_by": "mini1",
+      "name": "Muse Glimmer 30B",
+      "context_length": 32768,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "local",
+        "display_name": "Muse Glimmer 30B",
+        "provider": null,
+        "node": {
+          "id": "mini1",
+          "name": "Mac mini 1 · Ollama",
+          "runtime": "ollama",
+          "host_id": "mini1"
+        },
+        "upstream_model": "glimmer:30b",
+        "available": false,
+        "unavailable_reason": "node_down",
+        "load_state": "unknown",
+        "size_bytes": 23622320128,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "source": "discovered"
+      }
+    },
+    {
+      "id": "spark-vllm/Qwen/Qwen3.8-27B",
+      "object": "model",
+      "created": 0,
+      "owned_by": "spark-vllm",
+      "name": "Qwen3.8 27B (vLLM)",
+      "context_length": 32768,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "local",
+        "display_name": "Qwen3.8 27B (vLLM)",
+        "provider": null,
+        "node": {
+          "id": "spark-vllm",
+          "name": "DGX Spark · vLLM",
+          "runtime": "vllm",
+          "host_id": "spark"
+        },
+        "upstream_model": "Qwen/Qwen3.8-27B",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": "loaded",
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "source": "discovered"
+      }
+    },
+    {
+      "id": "ft/legal-qwen-v3",
+      "object": "model",
+      "created": 0,
+      "owned_by": "spark",
+      "name": "Legal Qwen v3",
+      "context_length": 32768,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "seed",
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "custom",
+        "display_name": "Legal Qwen v3",
+        "provider": null,
+        "node": {
+          "id": "spark",
+          "name": "DGX Spark · Ollama",
+          "runtime": "ollama",
+          "host_id": "spark"
+        },
+        "upstream_model": "legal-qwen-v3:latest",
+        "available": true,
+        "unavailable_reason": null,
+        "load_state": "unloaded",
+        "size_bytes": 17179869184,
+        "can_rank": false,
+        "can_chair": false,
+        "tags": [
+          "fine-tune"
+        ],
+        "hf_id": "Qwen/Qwen3.8-27B",
+        "lineage": {
+          "name": "legal-qwen",
+          "version": "v3",
+          "base_hf_id": "Qwen/Qwen3.8-27B",
+          "method": "lora",
+          "serving_strategy": "merged",
+          "training_run_id": "run-2026-10-20-a"
+        },
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "source": "user"
+      }
+    }
+  ]
+}

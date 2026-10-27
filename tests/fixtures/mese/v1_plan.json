@@ -1,0 +1,91 @@
+{
+  "feasible": true,
+  "items": [
+    {
+      "model": "anthropic/claude-opus-5-5",
+      "kind": "cloud",
+      "state": "ready",
+      "host_id": null,
+      "est_bytes": null,
+      "est_load_s": null,
+      "reason": null
+    },
+    {
+      "model": "openai/gpt-6.1-sol",
+      "kind": "cloud",
+      "state": "ready",
+      "host_id": null,
+      "est_bytes": null,
+      "est_load_s": null,
+      "reason": null
+    },
+    {
+      "model": "spark/qwen3.8:27b",
+      "kind": "local",
+      "state": "loaded",
+      "host_id": "spark",
+      "est_bytes": 18253611008,
+      "est_load_s": 0,
+      "reason": null
+    },
+    {
+      "model": "spark/gpt-oss:120b",
+      "kind": "local",
+      "state": "will_load",
+      "host_id": "spark",
+      "est_bytes": 87241523200,
+      "est_load_s": 51.5,
+      "reason": null
+    },
+    {
+      "model": "ft/legal-qwen-v3",
+      "kind": "custom",
+      "state": "will_load",
+      "host_id": "spark",
+      "est_bytes": 21474836480,
+      "est_load_s": 16.5,
+      "reason": null
+    },
+    {
+      "model": "xai/grok-4.7",
+      "kind": "cloud",
+      "state": "unavailable",
+      "host_id": null,
+      "est_bytes": null,
+      "est_load_s": null,
+      "reason": "circuit_open"
+    }
+  ],
+  "hosts": [
+    {
+      "host_id": "spark",
+      "budget_bytes": 97066260890,
+      "resident_bytes": 18253611008,
+      "required_bytes": 126969970688,
+      "schedule": "waves",
+      "est_extra_load_s": 51.5
+    }
+  ],
+  "warnings": [
+    {
+      "code": "waves",
+      "host_id": "spark",
+      "message": "spark: runs in 2 waves, +~52 s"
+    },
+    {
+      "code": "cannot_rank",
+      "model": "ft/legal-qwen-v3",
+      "message": "ft/legal-qwen-v3 is Stage 1 only (can_rank=false)"
+    },
+    {
+      "code": "unverified_price",
+      "model": "openai/gpt-6.1-sol",
+      "message": "openai/gpt-6.1-sol price is unverified"
+    },
+    {
+      "code": "unavailable",
+      "model": "xai/grok-4.7",
+      "message": "xai/grok-4.7 is unavailable (circuit_open)"
+    }
+  ]
+}

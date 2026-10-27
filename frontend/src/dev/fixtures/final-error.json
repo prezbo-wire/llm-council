@@ -1,0 +1,248 @@
+{
+  "name": "final-error",
+  "description": "The chairman fails mid-stream: final_error, then stage3_complete with an explicit error and an empty response (no fake text). The title step still runs after Stage 3; the run is partial.",
+  "council": {
+    "members": [
+      "openai/gpt-6.1-sol",
+      "spark/qwen3.8:27b"
+    ],
+    "chairman": "anthropic/claude-opus-5-5"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "openai/gpt-6.1-sol",
+          "displayName": "GPT-6.1 Sol",
+          "kind": "cloud",
+          "providerId": "openai",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "spark/qwen3.8:27b",
+          "displayName": "Qwen3.8 27B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        }
+      ],
+      "chairman": {
+        "modelId": "anthropic/claude-opus-5-5",
+        "displayName": "Claude Opus 5.5",
+        "kind": "cloud",
+        "providerId": "anthropic",
+        "nodeId": null
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "openai/gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
+      "kind": "cloud",
+      "providerId": "openai",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/qwen3.8:27b",
+      "displayName": "Qwen3.8 27B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_status",
+      "memberId": "openai/gpt-6.1-sol",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "Pick SQLite unless you need replication, roles or heavy concurrent writes."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+      "latencyMs": 6000,
+      "ttftMs": 880,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 410,
+        "completionTokens": 38,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "openai/gpt-6.1-sol",
+      "deltaText": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "openai/gpt-6.1-sol",
+      "response": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access.",
+      "latencyMs": 7000,
+      "ttftMs": 1400,
+      "costUsd": 0.00138,
+      "usage": {
+        "promptTokens": 420,
+        "completionTokens": 96,
+        "reasoningTokens": 64
+      }
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+          "latency_ms": 6000,
+          "cost_usd": 0
+        },
+        {
+          "model": "openai/gpt-6.1-sol",
+          "response": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access.",
+          "latency_ms": 7000,
+          "cost_usd": 0.00138
+        }
+      ]
+    },
+    {
+      "type": "stage2_start"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "openai/gpt-6.1-sol",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "ranking": [
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "openai/gpt-6.1-sol",
+      "ranking": [
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response B\n2. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response A"
+          ]
+        },
+        {
+          "model": "openai/gpt-6.1-sol",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response B\n2. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response A"
+          ]
+        }
+      ],
+      "metadata": {
+        "label_to_model": {
+          "Response A": "spark/qwen3.8:27b",
+          "Response B": "openai/gpt-6.1-sol"
+        },
+        "aggregate_rankings": [
+          {
+            "model": "openai/gpt-6.1-sol",
+            "average_rank": 1.0,
+            "rankings_count": 2
+          },
+          {
+            "model": "spark/qwen3.8:27b",
+            "average_rank": 2.0,
+            "rankings_count": 2
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Use SQLite "
+    },
+    {
+      "type": "final_error",
+      "code": "upstream_timeout",
+      "message": "upstream produced no data for 120s"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "anthropic/claude-opus-5-5",
+        "response": "",
+        "error": {
+          "code": "upstream_timeout",
+          "message": "upstream produced no data for 120s"
+        }
+      }
+    },
+    {
+      "type": "title_complete",
+      "data": {
+        "title": "SQLite vs PostgreSQL"
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0.0061,
+      "tokens": {
+        "prompt": 2100,
+        "completion": 300
+      },
+      "failures": [
+        {
+          "stage": "3",
+          "model": "anthropic/claude-opus-5-5",
+          "code": "upstream_timeout",
+          "message": "upstream produced no data for 120s"
+        }
+      ],
+      "status": "partial"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}

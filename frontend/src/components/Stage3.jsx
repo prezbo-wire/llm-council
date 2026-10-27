@@ -1,121 +1,76 @@
 import { useRef } from 'react';
 import Markdown from './Markdown';
+import ModelBadge from './ModelBadge';
+import { useNameOf } from '../council/CatalogContext.js';
+import { chairmanCostUsd, formatCost, formatLatency, humanizeError } from '../council/format.js';
+import { exportChairmanPdf } from '../exportChairmanPdf.js';
 import './Stage3.css';
 
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+/**
+ * Error described by a persisted Stage-3 entry: the §I.7 `error` field, or the legacy shape
+ * `{model: "error", response: "All models failed…"}` written by the pre-Mese backend.
+ */
+function stage3Error(finalResponse) {
+  if (finalResponse.error && typeof finalResponse.error === 'object') return finalResponse.error;
+  if (finalResponse.model === 'error') return { code: null, message: finalResponse.response || 'The council did not produce an answer' };
+  return null;
 }
 
-export default function Stage3({ finalResponse }) {
+/**
+ * Persisted Stage-3 chairman answer, or its error state (no fake answer text). `usage` is the turn's
+ * usage, used for the chairman cost of turns stored before `stage3.cost_usd` existed.
+ */
+export default function Stage3({ finalResponse, hints = null, usage = null }) {
+  const responseRef = useRef(null);
+  const nameOf = useNameOf(hints);
+
   if (!finalResponse) {
     return null;
   }
 
-  const responseRef = useRef(null);
+  const error = stage3Error(finalResponse);
+  const chairId = finalResponse.model && finalResponse.model !== 'error' ? finalResponse.model : null;
+  const chairName = chairId ? nameOf(chairId) : '';
+
+  if (error) {
+    const { title, detail, code } = humanizeError(error.code, error.message);
+    return (
+      <div className="stage stage3 stage3-error">
+        <h3 className="stage-title">Stage 3: Final Council Answer</h3>
+        <div className="final-response final-response-error">
+          {chairId && (
+            <div className="chairman-label">
+              Chairman: {chairName} <ModelBadge modelId={chairId} hint={hints ? hints.get(chairId) : null} />
+            </div>
+          )}
+          <div className="stage3-error-title">No final answer</div>
+          <div className="stage3-error-reason">
+            {title}
+            {detail && <span className="stage3-error-detail"> · {detail}</span>}
+            {code && <span className="stage3-error-code">{code}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleExportPdf = () => {
-    const responseHtml = responseRef.current?.innerHTML?.trim();
-    const fallbackHtml = finalResponse.response
-      ? `<pre>${escapeHtml(finalResponse.response)}</pre>`
-      : '<p>No chairman response content available.</p>';
-    const content = responseHtml || fallbackHtml;
-    const printWindow = window.open('');
-    if (!printWindow) return;
-
-    const contentHtml = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Chairman Response</title>
-          <style>
-            body {
-              margin: 20px;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              color: #333;
-            }
-            h3 { color: #2d8a2d; }
-            .chairman-label {
-              color: #2d8a2d;
-              font-size: 12px;
-              font-family: monospace;
-              margin-bottom: 12px;
-              font-weight: 600;
-            }
-            .final-text {
-              line-height: 1.7;
-              font-size: 15px;
-              color: #333;
-            }
-            .final-text p { margin-top: 0; }
-            .final-text ul, .final-text ol { padding-left: 1.5em; }
-            .final-text table {
-              border-collapse: collapse;
-              width: 100%;
-              margin: 12px 0;
-            }
-            .final-text th,
-            .final-text td {
-              border: 1px solid #ccc;
-              padding: 8px;
-            }
-            .final-text pre {
-              background: #f5f5f5;
-              padding: 12px;
-              border-radius: 6px;
-              overflow-x: auto;
-            }
-            .final-text code {
-              background: #f0f0f0;
-              padding: 2px 6px;
-              border-radius: 4px;
-              font-size: 0.9em;
-            }
-            .final-text pre code { background: none; padding: 0; }
-          </style>
-        </head>
-        <body>
-          <div class="final-response">
-            <div class="chairman-label">Chairman: ${finalResponse.model.split('/')[1] || finalResponse.model}</div>
-            <div id="chairman-export-content" class="final-text"></div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.open();
-    printWindow.document.write(contentHtml);
-    printWindow.document.close();
-
-    const waitForReadyAndPrint = (attempts = 0) => {
-      const contentNode = printWindow.document.getElementById('chairman-export-content');
-      if (!contentNode) {
-        if (attempts < 20) {
-          setTimeout(() => waitForReadyAndPrint(attempts + 1), 50);
-        }
-        return;
-      }
-
-      contentNode.innerHTML = content;
-      printWindow.focus();
-      printWindow.print();
-    };
-
-    waitForReadyAndPrint();
+    exportChairmanPdf({
+      renderedHtml: responseRef.current?.innerHTML || '',
+      fallbackText: finalResponse.response,
+      chairmanName: chairName,
+    });
   };
+  const cost = formatCost(chairmanCostUsd(finalResponse, usage));
+  const meta = [formatLatency(finalResponse.latency_ms), cost].filter(Boolean).join(' · ');
 
   return (
     <div className="stage stage3">
       <h3 className="stage-title">Stage 3: Final Council Answer</h3>
       <div className="final-response">
         <div className="chairman-label">
-          Chairman: {finalResponse.model.split('/')[1] || finalResponse.model}
+          Chairman: {chairName} {chairId && <ModelBadge modelId={chairId} hint={hints ? hints.get(chairId) : null} />}
+          {meta && <span className="chairman-meta">{meta}</span>}
         </div>
         <button className="export-button" onClick={handleExportPdf} type="button">
           Export PDF

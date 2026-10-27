@@ -17,11 +17,30 @@
   background: linear-gradient(to right, #f8f9fa, #ffffff);
 }
 
+.panel-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .panel-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #333;
+}
+
+.panel-chair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+.final-decision-panel.status-error {
+  border-color: #f3c4c4;
 }
 
 .latency-badge {
@@ -214,7 +233,7 @@
   text-align: center;
 }
 
-.error-icon {
+.error-state .error-icon {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -228,10 +247,50 @@
   margin-bottom: 16px;
 }
 
-.error-message {
-  margin: 0 0 16px 0;
+.error-state .error-message {
+  margin: 0 0 8px 0;
   font-size: 14px;
   color: #e74c3c;
+}
+
+.error-reason {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a94442;
+}
+
+.error-reason-detail {
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.error-reason-code {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: #aaa;
+}
+
+.partial-draft {
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+  font-size: 13px;
+  color: #888;
+}
+
+.partial-draft summary {
+  cursor: pointer;
+}
+
+.partial-draft .markdown-content {
+  opacity: 0.75;
 }
 
 .retry-button {

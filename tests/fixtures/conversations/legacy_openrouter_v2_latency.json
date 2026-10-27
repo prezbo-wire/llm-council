@@ -1,0 +1,85 @@
+{
+  "id": "0dec6160-0000-4000-8000-000000000004",
+  "created_at": "2026-02-03T09:12:13.141516",
+  "title": "WAL explained",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain write-ahead logging."
+    },
+    {
+      "role": "assistant",
+      "stage1": [
+        {
+          "model": "openai/gpt-5.1",
+          "response": "WAL appends changes to a log before applying them.",
+          "latency_ms": 5400
+        },
+        {
+          "model": "google/gemini-3-pro-preview",
+          "response": "Writers append to the WAL; readers keep reading the main file.",
+          "latency_ms": 7300
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.5",
+          "response": "The log is replayed after a crash so committed data survives.",
+          "latency_ms": 6100
+        }
+      ],
+      "stage2": [
+        {
+          "model": "openai/gpt-5.1",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response C\n2. Response B\n3. Response A",
+          "parsed_ranking": [
+            "Response C",
+            "Response B",
+            "Response A"
+          ]
+        },
+        {
+          "model": "google/gemini-3-pro-preview",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response C\n2. Response A\n3. Response B",
+          "parsed_ranking": [
+            "Response C",
+            "Response A",
+            "Response B"
+          ]
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.5",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response B\n2. Response C\n3. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response C",
+            "Response A"
+          ]
+        }
+      ],
+      "stage3": {
+        "model": "openai/gpt-oss-20b",
+        "response": "Write-ahead logging records each change in an append-only log first, so a crash can be recovered by replaying it.",
+        "latency_ms": 12000
+      }
+    },
+    {
+      "role": "user",
+      "content": "And checkpoints?"
+    },
+    {
+      "role": "assistant",
+      "stage1": [
+        {
+          "model": "openai/gpt-5.1",
+          "response": "A checkpoint copies WAL pages back into the database file.",
+          "latency_ms": 4100
+        }
+      ],
+      "stage2": [],
+      "stage3": {
+        "model": "openai/gpt-oss-20b",
+        "response": "Checkpoints move committed WAL pages into the main database file and let the WAL be reset.",
+        "latency_ms": 8000
+      }
+    }
+  ]
+}

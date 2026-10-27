@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import MesePill from './MesePill';
 import './Sidebar.css';
 
 export default function Sidebar({
@@ -6,6 +6,8 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  meseHealth,
+  onRefreshHealth,
 }) {
   const visibleConversations = conversations.filter(
     (conv) => conv.message_count > 0
@@ -15,7 +17,7 @@ export default function Sidebar({
     <div className="sidebar">
       <div className="sidebar-header">
         <h1>LLM Council</h1>
-        <button className="new-conversation-btn" onClick={onNewConversation}>
+        <button className="new-conversation-btn" type="button" onClick={onNewConversation}>
           + New Conversation
         </button>
       </div>
@@ -41,6 +43,10 @@ export default function Sidebar({
             </div>
           ))
         )}
+      </div>
+
+      <div className="sidebar-footer">
+        <MesePill health={meseHealth} onRefresh={onRefreshHealth} />
       </div>
     </div>
   );
