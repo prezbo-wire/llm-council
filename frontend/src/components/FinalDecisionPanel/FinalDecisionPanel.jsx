@@ -1,110 +1,94 @@
 import { useRef } from 'react';
 import Markdown from '../Markdown';
+import ModelBadge from '../ModelBadge';
+import Elapsed from '../Elapsed';
+import { useNameOf } from '../../council/CatalogContext.js';
+import {
+  formatCost,
+  formatLatency,
+  humanizeError,
+  queuedText,
+  retryText,
+} from '../../council/format.js';
+import { exportChairmanPdf } from '../../exportChairmanPdf.js';
 import './FinalDecisionPanel.css';
 
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function PendingState({ title, subtitle }) {
+  return (
+    <div className="generating-state">
+      <div className="spinner-large"></div>
+      <p className="generating-text">{title}</p>
+      {subtitle && <p className="generating-subtext">{subtitle}</p>}
+    </div>
+  );
 }
 
-export default function FinalDecisionPanel({ decision, onRetry }) {
-  const { status, content, latencyMs, error } = decision;
+function pendingCopy(decision) {
+  switch (decision.status) {
+    case 'queued':
+      return { title: `Chairman ${queuedText(decision.position, decision.nodeId).toLowerCase()}`, subtitle: 'Waiting for a free slot' };
+    case 'loading':
+      return {
+        title: (
+          <>
+            {`Loading the chairman${decision.nodeId ? ` on ${decision.nodeId}` : ''}…`} <Elapsed since={decision.since} />
+          </>
+        ),
+        subtitle: 'Local models load on first use',
+      };
+    case 'retrying':
+      return { title: retryText(decision.attempt, decision.reason), subtitle: 'The chairman call is being retried' };
+    case 'thinking':
+      return { title: 'Chairman is reasoning...', subtitle: 'Analyzing all council responses and rankings' };
+    default:
+      return { title: 'Chairman is synthesizing...', subtitle: 'Analyzing all council responses and rankings' };
+  }
+}
+
+/**
+ * Chairman panel for the live run. `decision` is the councilEvents.js `final` slice; `chairman`
+ * the council_started chairman. `onRetry` stays unwired in v1 (§I.9).
+ */
+export default function FinalDecisionPanel({ decision, chairman = null, onRetry }) {
+  const { status, content, latencyMs, costUsd, error } = decision;
   const responseRef = useRef(null);
+  const nameOf = useNameOf();
+  const chairId = decision.model || (chairman && chairman.modelId) || null;
+  const chairHint = chairman && chairman.modelId === chairId
+    ? { displayName: chairman.displayName, kind: chairman.kind, providerId: chairman.providerId, nodeId: chairman.nodeId }
+    : null;
   const hasResponseContent = status === 'streaming' || status === 'ready';
+  const latency = status === 'ready' ? formatLatency(latencyMs) : null;
+  const cost = status === 'ready' ? formatCost(costUsd) : null;
+  const pending = ['generating', 'queued', 'loading', 'retrying', 'thinking'].includes(status);
 
   const handleExportPdf = () => {
-    const safeContent = responseRef.current?.innerHTML?.trim() || '';
-    const fallbackContent = content
-      ? `<pre>${escapeHtml(content)}</pre>`
-      : '<p>No chairman response content available.</p>';
-    const renderContent = safeContent || fallbackContent;
-    const printWindow = window.open('');
-    if (!printWindow) return;
-
-    const contentHtml = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Chairman Response</title>
-          <style>
-            body {
-              margin: 20px;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              color: #333;
-            }
-            .final-title { margin-bottom: 12px; color: #333; }
-            .decision-content {
-              line-height: 1.6;
-              color: #333;
-            }
-            .decision-content p:first-child { margin-top: 0; }
-            .decision-content p:last-child { margin-bottom: 0; }
-            .decision-content ul, .decision-content ol { padding-left: 1.5em; }
-            .decision-content pre {
-              background: #f5f5f5;
-              padding: 12px;
-              border-radius: 6px;
-              overflow-x: auto;
-            }
-            .decision-content code {
-              background: #f0f0f0;
-              padding: 2px 6px;
-              border-radius: 4px;
-              font-size: 0.9em;
-            }
-            .decision-content pre code { background: none; padding: 0; }
-            .decision-content table {
-              border-collapse: collapse;
-              width: 100%;
-              margin: 12px 0;
-            }
-            .decision-content th,
-            .decision-content td {
-              border: 1px solid #ccc;
-              padding: 8px;
-            }
-          </style>
-        </head>
-        <body>
-          <h3 class="final-title">Chairman Response</h3>
-          <div id="chairman-export-content" class="decision-content"></div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.open();
-    printWindow.document.write(contentHtml);
-    printWindow.document.close();
-
-    const waitForReadyAndPrint = (attempts = 0) => {
-      const contentNode = printWindow.document.getElementById('chairman-export-content');
-      if (!contentNode) {
-        if (attempts < 20) {
-          setTimeout(() => waitForReadyAndPrint(attempts + 1), 50);
-        }
-        return;
-      }
-
-      contentNode.innerHTML = renderContent;
-      printWindow.focus();
-      printWindow.print();
-    };
-
-    waitForReadyAndPrint();
+    exportChairmanPdf({
+      renderedHtml: responseRef.current?.innerHTML || '',
+      fallbackText: content,
+      chairmanName: chairId ? nameOf(chairId) : '',
+    });
   };
 
+  const exportButton = hasResponseContent && (
+    <button className="export-button" onClick={handleExportPdf} type="button">
+      Export PDF
+    </button>
+  );
+
   return (
-    <div className="final-decision-panel">
+    <div className={`final-decision-panel status-${status}`}>
       <div className="panel-header">
-        <h3 className="panel-title">Final Decision</h3>
-        {status === 'ready' && latencyMs && (
-          <span className="latency-badge">{(latencyMs / 1000).toFixed(1)}s</span>
+        <div className="panel-heading">
+          <h3 className="panel-title">Final Decision</h3>
+          {chairId && (
+            <span className="panel-chair" title={chairId}>
+              {nameOf(chairId)} <ModelBadge modelId={chairId} hint={chairHint} />
+            </span>
+          )}
+        </div>
+        {(latency || cost) && (
+          <span className="latency-badge">{[latency, cost].filter(Boolean).join(' · ')}</span>
         )}
       </div>
 
@@ -121,13 +105,7 @@ export default function FinalDecisionPanel({ decision, onRetry }) {
           </div>
         )}
 
-        {status === 'generating' && (
-          <div className="generating-state">
-            <div className="spinner-large"></div>
-            <p className="generating-text">Chairman is synthesizing...</p>
-            <p className="generating-subtext">Analyzing all council responses and rankings</p>
-          </div>
-        )}
+        {pending && <PendingState {...pendingCopy(decision)} />}
 
         {status === 'streaming' && (
           <div className="streaming-state">
@@ -135,52 +113,54 @@ export default function FinalDecisionPanel({ decision, onRetry }) {
               <span className="pulse-dot-large"></span>
               <span className="streaming-label">Chairman is writing...</span>
             </div>
-            {hasResponseContent && (
-              <button className="export-button" onClick={handleExportPdf} type="button">
-                Export PDF
-              </button>
-            )}
+            {exportButton}
             <div className="decision-content markdown-content" ref={responseRef}>
               <Markdown>{content || ''}</Markdown>
             </div>
-            {hasResponseContent && (
-              <button className="export-button" onClick={handleExportPdf} type="button">
-                Export PDF
-              </button>
-            )}
+            {exportButton}
           </div>
         )}
 
         {status === 'ready' && (
           <div className="ready-state">
-            {hasResponseContent && (
-              <button className="export-button" onClick={handleExportPdf} type="button">
-                Export PDF
-              </button>
-            )}
+            {exportButton}
             <div className="decision-content markdown-content" ref={responseRef}>
               <Markdown>{content}</Markdown>
             </div>
-            {hasResponseContent && (
-              <button className="export-button" onClick={handleExportPdf} type="button">
-                Export PDF
-              </button>
-            )}
+            {exportButton}
           </div>
         )}
 
-        {status === 'error' && (
-          <div className="error-state">
-            <div className="error-icon">!</div>
-            <p className="error-message">{error || 'Failed to generate final decision'}</p>
-            {onRetry && (
-              <button className="retry-button" onClick={onRetry}>
-                Retry
-              </button>
-            )}
-          </div>
-        )}
+        {status === 'error' && <FinalError error={error} content={content} onRetry={onRetry} />}
       </div>
+    </div>
+  );
+}
+
+function FinalError({ error, content, onRetry }) {
+  const { title, detail, code } = humanizeError(error?.code, error?.message || 'Failed to generate final decision');
+  return (
+    <div className="error-state">
+      <div className="error-icon">!</div>
+      <p className="error-message">The chairman could not synthesize a final answer</p>
+      <p className="error-reason">
+        {title}
+        {detail && <span className="error-reason-detail">{detail}</span>}
+        {code && <span className="error-reason-code">{code}</span>}
+      </p>
+      {onRetry && (
+        <button className="retry-button" type="button" onClick={onRetry}>
+          Retry
+        </button>
+      )}
+      {content && (
+        <details className="partial-draft">
+          <summary>Partial draft before the failure</summary>
+          <div className="markdown-content">
+            <Markdown>{content}</Markdown>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

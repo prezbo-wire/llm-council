@@ -1,39 +1,52 @@
 import { useState, useEffect, useRef } from 'react';
 import Markdown from './Markdown';
-import Stage1 from './Stage1';
-import Stage2 from './Stage2';
-import Stage3 from './Stage3';
-import CouncilBoard from './CouncilBoard/CouncilBoard';
-import FinalDecisionPanel from './FinalDecisionPanel/FinalDecisionPanel';
-import Stage2Collapsible from './Stage2Collapsible/Stage2Collapsible';
+import AssistantMessage from './AssistantMessage';
+import LiveCouncilRun from './LiveCouncilRun';
+import { endsWithUserMessage } from '../council/turns.js';
 import './ChatInterface.css';
 
+function UserMessage({ content }) {
+  return (
+    <div className="user-message">
+      <div className="message-label">You</div>
+      <div className="message-content">
+        <div className="markdown-content">
+          <Markdown>{content}</Markdown>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Conversation view: persisted turns, the live council run, and the input with the council
+ * picker above it. Send is disabled while a run is in flight or the council is invalid.
+ */
 export default function ChatInterface({
   conversation,
+  liveTurn = null,
   onSendMessage,
   isLoading,
-  councilMembers,
-  finalDecision,
-  stage2Data,
-  useNewUI,
+  councilPicker = null,
+  canSend = true,
+  notice = null,
+  onDismissNotice,
 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [conversation]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation, liveTurn]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSendMessage(input);
-      setInput('');
-    }
+    const text = input;
+    if (!text.trim() || isLoading || !canSend) return;
+    setInput('');
+    const accepted = await onSendMessage(text);
+    // Restore the question when the backend rejected it before the run started.
+    if (accepted === false) setInput((current) => current || text);
   };
 
   const handleKeyDown = (e) => {
@@ -55,95 +68,34 @@ export default function ChatInterface({
     );
   }
 
+  const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+  const showPendingUser = liveTurn && !endsWithUserMessage(messages, liveTurn.content);
+  const isEmpty = messages.length === 0 && !liveTurn;
+
   return (
     <div className="chat-interface">
       <div className="messages-container">
-        {conversation.messages.length === 0 ? (
+        {isEmpty ? (
           <div className="empty-state">
             <h2>Start a conversation</h2>
             <p>Ask a question to consult the LLM Council</p>
           </div>
         ) : (
-          conversation.messages.map((msg, index) => {
-            const isLastMessage = index === conversation.messages.length - 1;
-            const showNewUI = msg.isNewFormat && isLastMessage && useNewUI;
-
-            return (
-              <div key={index} className="message-group">
-                {msg.role === 'user' ? (
-                  <div className="user-message">
-                    <div className="message-label">You</div>
-                    <div className="message-content">
-                      <div className="markdown-content">
-                        <Markdown>{msg.content}</Markdown>
-                      </div>
-                    </div>
-                  </div>
-                ) : showNewUI ? (
-                  // New 2-column layout for active streaming messages
-                  <div className="assistant-message new-format">
-                    <div className="message-label">LLM Council</div>
-                    <div className="council-layout">
-                      <div className="council-left">
-                        <CouncilBoard members={councilMembers} />
-                        <Stage2Collapsible
-                          rankings={stage2Data.rankings}
-                          labelToModel={stage2Data.labelToModel}
-                          aggregateRankings={stage2Data.aggregateRankings}
-                          isLoading={stage2Data.isLoading}
-                          defaultExpanded={false}
-                        />
-                      </div>
-                      <div className="council-right">
-                        <FinalDecisionPanel decision={finalDecision} />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // Legacy format for old messages
-                  <div className="assistant-message">
-                    <div className="message-label">LLM Council</div>
-
-                    {/* Stage 1 */}
-                    {msg.loading?.stage1 && (
-                      <div className="stage-loading">
-                        <div className="spinner"></div>
-                        <span>Running Stage 1: Collecting individual responses...</span>
-                      </div>
-                    )}
-                    {msg.stage1 && <Stage1 responses={msg.stage1} />}
-
-                    {/* Stage 2 */}
-                    {msg.loading?.stage2 && (
-                      <div className="stage-loading">
-                        <div className="spinner"></div>
-                        <span>Running Stage 2: Peer rankings...</span>
-                      </div>
-                    )}
-                    {msg.stage2 && (
-                      <Stage2
-                        rankings={msg.stage2}
-                        labelToModel={msg.metadata?.label_to_model}
-                        aggregateRankings={msg.metadata?.aggregate_rankings}
-                      />
-                    )}
-
-                    {/* Stage 3 */}
-                    {msg.loading?.stage3 && (
-                      <div className="stage-loading">
-                        <div className="spinner"></div>
-                        <span>Running Stage 3: Final synthesis...</span>
-                      </div>
-                    )}
-                    {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
-                  </div>
-                )}
-              </div>
-            );
-          })
+          messages.map((msg, index) => (
+            <div key={index} className="message-group">
+              {msg.role === 'user' ? <UserMessage content={msg.content} /> : <AssistantMessage message={msg} />}
+            </div>
+          ))
         )}
 
-        {isLoading && (
+        {liveTurn && (
+          <div className="message-group">
+            {showPendingUser && <UserMessage content={liveTurn.content} />}
+            <LiveCouncilRun run={liveTurn.run} />
+          </div>
+        )}
+
+        {isLoading && liveTurn && liveTurn.run.phase === 'idle' && (
           <div className="loading-indicator">
             <div className="spinner"></div>
             <span>Consulting the council...</span>
@@ -152,6 +104,19 @@ export default function ChatInterface({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {notice && (
+        <div className="chat-notice" role="alert">
+          <span>{notice.text}</span>
+          {onDismissNotice && (
+            <button type="button" className="chat-notice-dismiss" aria-label="Dismiss" onClick={onDismissNotice}>
+              ×
+            </button>
+          )}
+        </div>
+      )}
+
+      {councilPicker}
 
       <form className="input-form" onSubmit={handleSubmit}>
         <textarea
@@ -166,7 +131,8 @@ export default function ChatInterface({
         <button
           type="submit"
           className="send-button"
-          disabled={!input.trim() || isLoading}
+          disabled={!input.trim() || isLoading || !canSend}
+          title={canSend ? undefined : 'Pick 1–8 members and a chairman'}
         >
           Send
         </button>

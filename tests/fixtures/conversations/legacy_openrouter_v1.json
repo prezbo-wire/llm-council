@@ -1,0 +1,61 @@
+{
+  "id": "0dec6160-0000-4000-8000-000000000003",
+  "created_at": "2026-01-21T14:30:00.500000",
+  "title": "SQLite vs PostgreSQL",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What are the trade-offs between SQLite and PostgreSQL for a single-user app?"
+    },
+    {
+      "role": "assistant",
+      "stage1": [
+        {
+          "model": "openai/gpt-5.1",
+          "response": "SQLite is embedded and zero-ops; PostgreSQL adds concurrency and extensions."
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.5",
+          "response": "For one user, SQLite is usually enough; choose PostgreSQL for many writers."
+        },
+        {
+          "model": "x-ai/grok-4",
+          "response": "SQLite. Unless you need replication."
+        }
+      ],
+      "stage2": [
+        {
+          "model": "openai/gpt-5.1",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response B\n2. Response A\n3. Response C",
+          "parsed_ranking": [
+            "Response B",
+            "Response A",
+            "Response C"
+          ]
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.5",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response A\n2. Response B\n3. Response C",
+          "parsed_ranking": [
+            "Response A",
+            "Response B",
+            "Response C"
+          ]
+        },
+        {
+          "model": "x-ai/grok-4",
+          "ranking": "Response A is thorough but long. Response B is concise. Response C misses durability.\n\nFINAL RANKING:\n1. Response B\n2. Response C\n3. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response C",
+            "Response A"
+          ]
+        }
+      ],
+      "stage3": {
+        "model": "google/gemini-3-pro-preview",
+        "response": "Use SQLite for a single-user app; move to PostgreSQL when you need concurrent writers or network access."
+      }
+    }
+  ]
+}

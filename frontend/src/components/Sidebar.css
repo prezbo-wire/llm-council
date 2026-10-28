@@ -79,3 +79,8 @@
   color: #999;
   font-size: 12px;
 }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+}

@@ -1,0 +1,8 @@
+{
+  "version": "0.1.0",
+  "locked": false,
+  "providers_configured": 3,
+  "nodes_up": 2,
+  "nodes_total": 3,
+  "breakers_open": 2
+}

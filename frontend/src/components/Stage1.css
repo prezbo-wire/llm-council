@@ -63,3 +63,27 @@
   color: #333;
   line-height: 1.6;
 }
+
+.model-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-name .model-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.model-id {
+  color: #aaa;
+}
+
+.model-meta {
+  margin-left: auto;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}

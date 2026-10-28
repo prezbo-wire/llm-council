@@ -1,25 +1,20 @@
 import { useState } from 'react';
 import Markdown from './Markdown';
+import { ModelLabel } from './ModelBadge';
+import { useNameOf } from '../council/CatalogContext.js';
+import { deAnonymizeText } from '../council/rankings.js';
 import './Stage2.css';
 
-function deAnonymizeText(text, labelToModel) {
-  if (!labelToModel) return text;
-
-  let result = text;
-  // Replace each "Response X" with the actual model name
-  Object.entries(labelToModel).forEach(([label, model]) => {
-    const modelShortName = model.split('/')[1] || model;
-    result = result.replace(new RegExp(label, 'g'), `**${modelShortName}**`);
-  });
-  return result;
-}
-
-export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
+/** Persisted Stage-2 rankings. De-anonymisation happens client-side for readability only. */
+export default function Stage2({ rankings, labelToModel, aggregateRankings, hints = null }) {
   const [activeTab, setActiveTab] = useState(0);
+  const nameOf = useNameOf(hints);
 
   if (!rankings || rankings.length === 0) {
     return null;
   }
+  const tab = Math.min(activeTab, rankings.length - 1);
+  const current = rankings[tab];
 
   return (
     <div className="stage stage2">
@@ -35,35 +30,30 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
         {rankings.map((rank, index) => (
           <button
             key={index}
-            className={`tab ${activeTab === index ? 'active' : ''}`}
+            type="button"
+            className={`tab ${tab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
+            title={rank.model}
           >
-            {rank.model.split('/')[1] || rank.model}
+            {nameOf(rank.model)}
           </button>
         ))}
       </div>
 
       <div className="tab-content">
         <div className="ranking-model">
-          {rankings[activeTab].model}
+          <ModelLabel modelId={current.model} hint={hints ? hints.get(current.model) : null} />
         </div>
         <div className="ranking-content markdown-content">
-          <Markdown>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
-          </Markdown>
+          <Markdown>{deAnonymizeText(current.ranking, labelToModel, nameOf)}</Markdown>
         </div>
 
-        {rankings[activeTab].parsed_ranking &&
-         rankings[activeTab].parsed_ranking.length > 0 && (
+        {Array.isArray(current.parsed_ranking) && current.parsed_ranking.length > 0 && (
           <div className="parsed-ranking">
             <strong>Extracted Ranking:</strong>
             <ol>
-              {rankings[activeTab].parsed_ranking.map((label, i) => (
-                <li key={i}>
-                  {labelToModel && labelToModel[label]
-                    ? labelToModel[label].split('/')[1] || labelToModel[label]
-                    : label}
-                </li>
+              {current.parsed_ranking.map((label, i) => (
+                <li key={i}>{labelToModel && labelToModel[label] ? nameOf(labelToModel[label]) : label}</li>
               ))}
             </ol>
           </div>
@@ -80,15 +70,9 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
             {aggregateRankings.map((agg, index) => (
               <div key={index} className="aggregate-item">
                 <span className="rank-position">#{index + 1}</span>
-                <span className="rank-model">
-                  {agg.model.split('/')[1] || agg.model}
-                </span>
-                <span className="rank-score">
-                  Avg: {agg.average_rank.toFixed(2)}
-                </span>
-                <span className="rank-count">
-                  ({agg.rankings_count} votes)
-                </span>
+                <span className="rank-model">{nameOf(agg.model)}</span>
+                <span className="rank-score">Avg: {Number(agg.average_rank).toFixed(2)}</span>
+                <span className="rank-count">({agg.rankings_count} votes)</span>
               </div>
             ))}
           </div>

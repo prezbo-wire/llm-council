@@ -40,3 +40,62 @@
   margin-top: 12px;
   margin-bottom: 0;
 }
+
+.chairman-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chairman-label .model-badge {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.chairman-meta {
+  margin-left: auto;
+  color: #6a9f6a;
+  font-weight: 400;
+}
+
+/* Error state: the chairman failed (no fake answer text) */
+.stage3.stage3-error {
+  background: #fff7f7;
+  border-color: #f3c4c4;
+}
+
+.final-response-error {
+  border-color: #f3c4c4;
+}
+
+.final-response-error .chairman-label {
+  color: #a94442;
+}
+
+.stage3-error-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e74c3c;
+  margin-bottom: 6px;
+}
+
+.stage3-error-reason {
+  font-size: 14px;
+  color: #a94442;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stage3-error-detail {
+  color: #888;
+  font-size: 13px;
+}
+
+.stage3-error-code {
+  margin-left: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #aaa;
+}
