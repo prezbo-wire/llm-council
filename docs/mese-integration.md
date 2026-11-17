@@ -68,9 +68,10 @@ effectively exclusive ("exclusive (auto)"). The class is set per model in Mese a
   models join only to reach 2 members; the chair is the resident `can_chair` model with the largest context,
   else the v1 rule over every local `can_chair` model. Without residency data the selection is exactly v1's.
   There is no built-in with a big exclusive chair: pick it, or save it as your own preset.
-- **Plan:** `POST /api/council/plan` sends the chairman as `chairman`, so Mese also simulates the turn and
+- **Plan:** `POST /api/council/plan` sends `{models: members, chairman}` (a chair that is not a member is never
+  listed in `models`, which Mese plans as Stage-1/2 members), so Mese also simulates the turn and
   returns `turn` (`loads`, `load_s`, `restore_s`, `stages`), which passes through unchanged (an older Mese
-  that rejects `chairman` with 400 `invalid_request` is asked again without it, and has no turn line). Warnings
+  that rejects `chairman` with 400 `invalid_request` is asked again with the chair in `models`, and has no turn line). Warnings
   `exclusive`, `slow` and `cpu_offload` render like every other warning, as `plan-<code>` lines.
 - **Picker:** each local row shows a pill (Resident, Resident · reloading, On demand · ~N s, Exclusive · ~N s,
   Exclusive (auto) · ~N s), plus Slow · ~N tok/s below 10 tok/s and CPU offload when the plan warns about it.

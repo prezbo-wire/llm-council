@@ -23,7 +23,7 @@ Every model call goes through **Mese**, the local model router in `/Users/prezbo
 - `stream_chat()`: POST `/v1/chat/completions` with `stream: true` and `mese: {client: "llm-council", run_id, conversation_id, stage, events: true}`; no `max_tokens`/`temperature` (Mese policy applies)
 - SSE parser: `:` comments/keepalives ignored; `event: mese` frames → `on_status` (`queued`/`loading`/`started`/`retrying`); first `reasoning_content` → `on_status({"state": "thinking"})` (reasoning text is dropped); `content` → `on_delta`; the finish chunk carries `finish_reason`, `usage`, the `mese` summary and `error`; `[DONE]`
 - **Always returns a `MemberResult`, never `None`**, never raises for upstream errors: `ok` only for `stop`/`length` **with answer text** (no text, e.g. a reasoning model that spent its budget reasoning → `empty_response`); `content_filter` → `content_filtered`; in-stream error → Mese `error.code`; pre-stream HTTP error → code from the body; connect failure → `mese_unreachable`; no finish chunk → `upstream_error`. `plan_limit_exceeded` (ChatGPT plan usage limit, HTTP 429 or in-stream) is never `retryable`, whatever the body says
-- `list_models()` (10 s cache), `plan(models, chairman=None)` (with the chairman Mese also returns the `turn` simulation; an older Mese that rejects `chairman` with 400 `invalid_request` is asked again without it), `warmup()` (best-effort), `status()`; `list_models`/`plan` raise `MeseError`
+- `list_models()` (10 s cache), `plan(models, chairman=None)` (with the chairman Mese also returns the `turn` simulation; an older Mese that rejects `chairman` with 400 `invalid_request` is asked again without it, the chair folded into `models`), `warmup()` (best-effort), `status()`; `list_models`/`plan` raise `MeseError`
 
 **`council/`** - The Core Logic (replaces the old 529-line `council.py`)
 - `prompts.py`: ranking, chairman and title prompts (verbatim from the original), plus label helpers
@@ -51,7 +51,7 @@ Every model call goes through **Mese**, the local model router in `/Users/prezbo
 
 **`app_state.py`**: `AppContext` (settings, Mese client, stores incl. `last_used`), HTTP error helpers, and `council_for_send()` (request council → conversation council → `DEFAULT_COUNCIL` → `builtin:hybrid` → 422 `council_required`; the chosen council is persisted and recorded as Last used; a rejected send (422/503) records nothing, and a failing last-used write only logs a warning). `stored_preset_id()`: `builtin:last-used` moves with every send, so it is never stored as a conversation's `preset_id` (PUT council and `POST /api/conversations` store the preset it came from while the council still equals the record, else None)
 
-**`api_council.py`**: `/api/models` (`?refresh=1` skips the 10 s catalog cache), `/api/mese/health`, `/api/council/plan` (sends the members plus the chairman, and the chairman as `chairman`, so Mese's `turn` passes through), `/api/presets*`, `PUT /api/conversations/{id}/council`
+**`api_council.py`**: `/api/models` (`?refresh=1` skips the 10 s catalog cache), `/api/mese/health`, `/api/council/plan` (sends `{models: members, chairman}` per §I.1, never the chair in `models`: Mese plans every id there as a Stage-1/2 member; Mese's `turn` passes through), `/api/presets*`, `PUT /api/conversations/{id}/council`
 
 **`main.py`**
 - `create_app(settings, mese_client=None)` app factory + lifespan; module-level `app`; `python -m backend.main [--host] [--port]`

@@ -63,14 +63,15 @@ async def mese_health(request: Request) -> Dict[str, Any]:
 
 @router.post("/api/council/plan")
 async def council_plan(council: CouncilConfig, request: Request) -> Dict[str, Any]:
-    """Proxies ``POST /v1/mese/plan`` for the members plus the chairman (the picker debounces it).
+    """Proxies ``POST /v1/mese/plan`` as ``{models: members, chairman}`` (§I.1; the picker debounces it).
 
-    The chairman is also named, so Mese returns the ``turn`` simulation the picker's turn line shows;
-    the response passes through unchanged.
+    Only the members go in ``models``: Mese plans every id there as a Stage-1/2 member and adds the chairman
+    itself, so a chair that is not a member must not be listed (its turn would load it in Stage 1, 2 and 3).
+    Mese returns the ``turn`` simulation the picker's turn line shows; the response passes through unchanged.
     """
-    models = list(dict.fromkeys([*council.members, council.chairman]))
+    members = list(dict.fromkeys(council.members))
     try:
-        return await get_ctx(request).client.plan(models, council.chairman)
+        return await get_ctx(request).client.plan(members, council.chairman)
     except MeseError as exc:
         raise mese_http_error(exc) from None
 

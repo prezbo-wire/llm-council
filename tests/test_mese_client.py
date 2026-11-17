@@ -309,7 +309,13 @@ async def test_an_older_mese_that_rejects_the_plan_chairman_still_plans_the_memb
     client = MeseClient(TEST_MESE_URL, TEST_MESE_TOKEN, transport=httpx.MockTransport(older_mese))
     assert await client.plan(["spark/qwen3.8:27b"], "spark/gpt-oss:120b") == mock.plan
     sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
-    assert sent == [{"models": ["spark/qwen3.8:27b"], "chairman": "spark/gpt-oss:120b"}, {"models": ["spark/qwen3.8:27b"]}]
+    # The fallback folds the chair into `models` (it keeps its warnings); only then is it listed there.
+    assert sent == [{"models": ["spark/qwen3.8:27b"], "chairman": "spark/gpt-oss:120b"},
+                    {"models": ["spark/qwen3.8:27b", "spark/gpt-oss:120b"]}]
+    mock.requests.clear()
+    assert await client.plan(["spark/gpt-oss:120b", "spark/qwen3.8:27b"], "spark/gpt-oss:120b") == mock.plan
+    sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
+    assert sent[1] == {"models": ["spark/gpt-oss:120b", "spark/qwen3.8:27b"]}  # a member chair is not duplicated
     await client.aclose()
     bad = make_client(mock, token="mese_ck_bad")  # any other failure is not retried
     with pytest.raises(MeseError) as unauthorized:

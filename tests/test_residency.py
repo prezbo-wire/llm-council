@@ -230,8 +230,13 @@ async def test_plan_proxy_sends_the_chairman_and_passes_the_turn_through(api, mo
     assert (turn["loads"], turn["load_s"], turn["restore_s"]) == (1, 48.3, 52.3)
     assert turn["stages"] == [{"stage": "stage3", "loads": [GPT_OSS], "evicts": exclusive_plan["turn"]["stages"][0]["evicts"],
                                "load_s": 48.3}]
+    # §I.1 `{models: [...members], chairman}`: Mese plans every id in `models` as a Stage-1/2 member, so a chair
+    # that is not a member stays out of `models` (else the turn loads it in Stage 1, 2 and 3).
     sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
-    assert sent == [{"models": [QWEN, VLLM, GPT_OSS], "chairman": GPT_OSS}]
+    assert sent == [{"models": [QWEN, VLLM], "chairman": GPT_OSS}]
     member_chair = await api.post("/api/council/plan", json={"members": [QWEN, VLLM], "chairman": QWEN})
     assert member_chair.status_code == 200
-    assert json.loads(mock.requests[-1].content) == {"models": [QWEN, VLLM], "chairman": QWEN}  # no duplicate id
+    assert json.loads(mock.requests[-1].content) == {"models": [QWEN, VLLM], "chairman": QWEN}
+    listed_chair = await api.post("/api/council/plan", json={"members": [QWEN, GPT_OSS, VLLM], "chairman": GPT_OSS})
+    assert listed_chair.status_code == 200
+    assert json.loads(mock.requests[-1].content) == {"models": [QWEN, GPT_OSS, VLLM], "chairman": GPT_OSS}  # no duplicate
