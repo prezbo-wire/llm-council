@@ -169,6 +169,23 @@ To access from another device on your LAN or tailnet, open `http://<HOST_IP>:517
 backend at `http://<HOST_IP>:8001`, so that port must be reachable and the origin must be in
 `COUNCIL_ALLOWED_ORIGINS` (the start scripts handle this; the same list is the backend's `Host` allowlist).
 
+**Option 3: On the DGX Spark, next to Mese**
+
+With Mese already installed on the Spark (its `deploy/spark/install-user.sh`), run this on the Mac:
+
+```bash
+deploy/spark/deploy.sh <user>@<spark tailnet IPv4>
+```
+
+It builds the UI on the Mac, copies the checkout to `~/Development/llm-council` on the Spark (never `.env`,
+`data/`, `.venv` or `node_modules`), and runs `deploy/spark/install-user.sh` there. That script installs two
+systemd `--user` services: `llm-council` (the backend on `<tailnet IPv4>:8001`) and `llm-council-ui` (the built
+UI on `<tailnet IPv4>:5173`). It needs no sudo. Configuration is in `~/.config/llm-council/llm-council.env`,
+written once with the tailnet IP and the MagicDNS names as the allowed origins. The Mese token is copied from
+Mese's `~/.mese/tokens/llm-council.token` on every run. Conversations live in `~/.llm-council`. Open
+`http://<spark tailnet IPv4>:5173`, or one of the MagicDNS names listed at the end of the install. Re-run the
+same command to update.
+
 ## Tests
 
 ```bash

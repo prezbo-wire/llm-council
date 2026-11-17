@@ -13,7 +13,7 @@ import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional
+from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional, Set
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +38,8 @@ log = logging.getLogger("backend")
 
 #: A ``: keepalive`` comment is sent after this much silence (cold local loads can be quiet for minutes).
 KEEPALIVE_INTERVAL_S = 15.0
+#: How long uvicorn lets open requests finish on SIGTERM before cancelling them (below the unit's TimeoutStopSec=30).
+GRACEFUL_SHUTDOWN_S = 10
 SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
 CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 CORS_HEADERS = ["Content-Type", "Accept"]
@@ -87,10 +89,17 @@ class SSEResponse(StreamingResponse):
 
 
 async def council_event_stream(query: str, council: CouncilConfigDict, conversation_id: str, deps: RunnerDeps, *,
-                               is_first_message: bool, keepalive_s: float = KEEPALIVE_INTERVAL_S) -> AsyncIterator[str]:
-    """Runs the council and yields its §I.6 events as SSE frames from one queue the runner feeds."""
+                               is_first_message: bool, keepalive_s: float = KEEPALIVE_INTERVAL_S,
+                               active_runs: Optional[Set[TaskTracker]] = None) -> AsyncIterator[str]:
+    """Runs the council and yields its §I.6 events as SSE frames from one queue the runner feeds.
+
+    The stream's tracker stays in ``active_runs`` until its tasks are done, so a shutdown that interrupts
+    this generator can still cancel the run and let it store the turn.
+    """
     queue: "asyncio.Queue[Any]" = asyncio.Queue()
     tracker = TaskTracker()
+    if active_runs is not None:
+        active_runs.add(tracker)
 
     async def emit(event: Dict[str, Any]) -> None:
         queue.put_nowait(event)
@@ -122,6 +131,8 @@ async def council_event_stream(query: str, council: CouncilConfigDict, conversat
     finally:
         # Client gone or run finished: cancel and await every task (this closes the Mese streams).
         await tracker.cancel_all()
+        if active_runs is not None:
+            active_runs.discard(tracker)
 
 
 def _require_conversation(ctx: AppContext, conversation_id: str) -> Dict[str, Any]:
@@ -186,8 +197,14 @@ async def send_message(conversation_id: str, body: SendMessageRequest, request: 
     council, catalog = await council_for_send(ctx, conversation, body.council.as_dict() if body.council else None)
     is_first_message = _needs_title(conversation)
     ctx.store.add_user_message(conversation_id, body.content)
-    result = await run_council(body.content, council, conversation_id, deps=_deps(ctx, catalog),
-                               is_first_message=is_first_message)
+    tracker = TaskTracker()
+    ctx.active_runs.add(tracker)
+    try:
+        result = await tracker.spawn(run_council(body.content, council, conversation_id, deps=_deps(ctx, catalog),
+                                                 is_first_message=is_first_message), name=f"council:{conversation_id}")
+    finally:
+        await tracker.cancel_all()
+        ctx.active_runs.discard(tracker)
     return result.to_response()
 
 
@@ -200,7 +217,8 @@ async def send_message_stream_v2(conversation_id: str, body: SendMessageRequest,
     is_first_message = _needs_title(conversation)
     ctx.store.add_user_message(conversation_id, body.content)
     stream = council_event_stream(body.content, council, conversation_id, _deps(ctx, catalog),
-                                  is_first_message=is_first_message, keepalive_s=KEEPALIVE_INTERVAL_S)
+                                  is_first_message=is_first_message, keepalive_s=KEEPALIVE_INTERVAL_S,
+                                  active_runs=ctx.active_runs)
     return SSEResponse(stream, media_type="text/event-stream", headers=SSE_HEADERS)
 
 
@@ -221,6 +239,12 @@ def create_app(settings: Optional[Settings] = None, *, mese_client: Optional[Mes
         try:
             yield
         finally:
+            # Shutdown: uvicorn has cancelled the open requests (GRACEFUL_SHUTDOWN_S), but a run task may not
+            # have had a turn yet, and uvicorn re-raises SIGTERM right after this. Cancel and await every run,
+            # so each stores its turn as 'cancelled' before the Mese client closes.
+            for tracker in list(ctx.active_runs):
+                await tracker.cancel_all()
+            ctx.active_runs.clear()
             if owned and ctx.mese is not None:
                 await ctx.mese.aclose()
                 ctx.mese = None
@@ -247,7 +271,10 @@ def main(argv: Optional[List[str]] = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     import uvicorn
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    # On SIGTERM uvicorn otherwise waits for every open SSE stream without limit (a council turn can run for
+    # minutes) and systemd SIGKILLs it after TimeoutStopSec, losing the turn. After the grace period it
+    # cancels the request tasks, and the runner stores the turn as 'cancelled'.
+    uvicorn.run(app, host=args.host, port=args.port, timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S)
 
 
 if __name__ == "__main__":

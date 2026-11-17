@@ -8,8 +8,8 @@ Error bodies (§I.5): ``{"detail": {"code": …, …}}``.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import HTTPException, Request
 
@@ -19,6 +19,9 @@ from .mese_client import MeseClient, MeseError
 from .presets import PresetNotFound, PresetStore, resolve_builtin, resolve_preset
 from .storage import ConversationStore
 
+if TYPE_CHECKING:
+    from .council.tasks import TaskTracker
+
 
 @dataclass
 class AppContext:
@@ -26,6 +29,8 @@ class AppContext:
     store: ConversationStore
     presets: PresetStore
     mese: Optional[MeseClient] = None
+    #: One tracker per council turn in progress; the lifespan cancels and awaits them on shutdown.
+    active_runs: "Set[TaskTracker]" = field(default_factory=set)
 
     @property
     def client(self) -> MeseClient:

@@ -212,3 +212,29 @@ async def test_empty_answer_is_a_member_failure_and_is_not_ranked(store):
     assert result.stage3["cost_usd"] == 0.03 and log.one("stage3_complete")["data"]["cost_usd"] == 0.03
     assert _messages(store)[-1]["stage3"] == {"model": OPUS, "response": f"{OPUS} synthesis", "latency_ms": result.stage3["latency_ms"],
                                               "cost_usd": 0.03, "error": None}
+
+
+async def test_shutdown_cancels_an_interrupted_stream_and_stores_the_turn(store):
+    """uvicorn's graceful-shutdown timeout can interrupt the SSE generator before its own cleanup runs; the
+    lifespan then cancels every tracker left in ``active_runs`` so the run still stores a cancelled turn."""
+    mock = MeseMock()
+    _hang_on(mock, OPUS, "stage1")
+    _hang_on(mock, GPT, "stage1")
+    deps = make_deps(mock, store)
+    active = set()
+    stream = council_event_stream(QUERY, {"members": [OPUS, GPT], "chairman": OPUS}, "conv-1", deps,
+                                  is_first_message=True, active_runs=active)
+    await stream.__anext__()  # council_started: the run is in flight
+    await _until(lambda: len(mock.streams) == 2 and all(s.yielded for s in mock.streams), "two hanging members")
+    assert len(active) == 1
+
+    for tracker in list(active):  # what the lifespan does on shutdown
+        await tracker.cancel_all()
+
+    assert all(s.closed for s in mock.streams)
+    user, assistant = _messages(store)
+    assert user["content"] == QUERY and assistant["status"] == "cancelled"
+    assert {f["model"] for f in assistant["failures"]} == {OPUS, GPT}
+    await stream.aclose()
+    assert active == set()
+    await deps.client.aclose()

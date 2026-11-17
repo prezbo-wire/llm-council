@@ -448,3 +448,28 @@ async def test_client_disconnect_cancels_every_in_flight_mese_stream(mock, setti
     assert user["content"] == "hi" and assistant["status"] == "cancelled"
     assert {f["model"] for f in assistant["failures"]} == set(COUNCIL["members"])
     await mese.aclose()
+
+
+async def test_lifespan_shutdown_cancels_runs_still_in_flight(settings, mock):
+    mese = make_client(mock)
+    app = create_app(settings, mese_client=mese)
+    from backend.council import TaskTracker
+
+    tracker = TaskTracker()
+    async with app.router.lifespan_context(app):
+        app.state.ctx.active_runs.add(tracker)
+        task = tracker.spawn(asyncio.sleep(3600))
+    assert task.cancelled() and app.state.ctx.active_runs == set()
+    await mese.aclose()
+
+
+def test_main_bounds_the_graceful_shutdown(monkeypatch):
+    import uvicorn
+
+    from backend import main as main_module
+
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: calls.append(kwargs))
+    main_module.main(["--host", "127.0.0.1", "--port", "8001"])
+    assert calls == [{"host": "127.0.0.1", "port": 8001, "timeout_graceful_shutdown": main_module.GRACEFUL_SHUTDOWN_S}]
+    assert main_module.GRACEFUL_SHUTDOWN_S < 30  # below TimeoutStopSec in deploy/spark/llm-council.service

@@ -124,6 +124,10 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 - Mese: 8790 (inference, used by the backend), 8791 (admin panel, linked from the UI)
 - Update `COUNCIL_PORT` and `frontend/src/api.js` together if changing the backend port
 
+### Spark Deploy (`deploy/spark/`)
+- `deploy.sh <user@spark>` (Mac): builds `frontend/dist`, stages `git ls-files -co --exclude-standard` minus `.claude`, `env/`, `data/` and `.env*`, `rsync --delete` to `~/Development/llm-council` (the remote `.venv` is kept), then runs `install-user.sh` there
+- `install-user.sh` (Spark, no sudo): `uv sync --frozen --no-dev`, `~/.config/llm-council/llm-council.env` (written once: tailnet bind, MagicDNS origins, `COUNCIL_DATA_DIR=~/.llm-council`), `mese-token.env` (rewritten every run from Mese's token file), units `llm-council` (backend) and `llm-council-ui` (`serve_ui.py`: static `dist`, `no-cache` on `index.html`, immutable `/assets/`, no listings)
+
 ### Markdown Rendering
 All markdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
