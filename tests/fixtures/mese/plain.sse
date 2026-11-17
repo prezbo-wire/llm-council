@@ -1,0 +1,12 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01","object":"chat.completion.chunk","created":1793000000,"model":"anthropic/claude-sonnet-5-5","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"The user wants a sum. "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01","object":"chat.completion.chunk","created":1793000000,"model":"anthropic/claude-sonnet-5-5","choices":[{"index":0,"delta":{"content":"2 + 2 = "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01","object":"chat.completion.chunk","created":1793000000,"model":"anthropic/claude-sonnet-5-5","choices":[{"index":0,"delta":{"content":"4."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01","object":"chat.completion.chunk","created":1793000000,"model":"anthropic/claude-sonnet-5-5","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":12,"total_tokens":32,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"cost":0.00016},"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f01","status":"ok","resolved":{"model":"anthropic/claude-sonnet-5-5","kind":"cloud","provider_id":"anthropic","node_id":null,"host_id":null,"runtime":null,"upstream_model":"claude-sonnet-5-5"},"cost_usd":0.00016,"cost_source":"computed","usage_source":"upstream","queue_ms":0,"load_ms":0,"ttft_ms":850,"latency_ms":2100,"attempts":1,"dropped_params":[],"warnings":[]}}
+
+data: [DONE]
+

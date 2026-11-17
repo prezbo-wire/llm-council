@@ -1,0 +1,24 @@
+# systemd --user unit for the llm-council UI (the built frontend/dist) on the DGX Spark.
+# deploy/spark/install-user.sh renders it into ~/.config/systemd/user/ with the checkout's real path.
+# The UI calls the backend on the hostname it was opened by, port 8001.
+
+[Unit]
+Description=llm-council UI (frontend/dist on COUNCIL_HOST:COUNCIL_UI_PORT)
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=%h/Development/llm-council
+EnvironmentFile=%h/.config/llm-council/llm-council.env
+ExecStart=%h/Development/llm-council/.venv/bin/python -I %h/Development/llm-council/deploy/spark/serve_ui.py %h/Development/llm-council/frontend/dist
+Restart=on-failure
+RestartSec=5
+RestartSteps=6
+RestartMaxDelaySec=60
+TimeoutStopSec=10
+UMask=0077
+NoNewPrivileges=true
+SyslogIdentifier=llm-council-ui
+
+[Install]
+WantedBy=default.target

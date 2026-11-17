@@ -1,0 +1,341 @@
+{
+  "name": "hybrid-success",
+  "description": "3-member hybrid council (2 cloud + 1 loaded local), everything succeeds; chairman is cloud.",
+  "council": {
+    "members": [
+      "anthropic/claude-opus-5-5",
+      "openai/gpt-6.1-sol",
+      "spark/qwen3.8:27b"
+    ],
+    "chairman": "anthropic/claude-opus-5-5"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "anthropic/claude-opus-5-5",
+          "displayName": "Claude Opus 5.5",
+          "kind": "cloud",
+          "providerId": "anthropic",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "openai/gpt-6.1-sol",
+          "displayName": "GPT-6.1 Sol",
+          "kind": "cloud",
+          "providerId": "openai",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "spark/qwen3.8:27b",
+          "displayName": "Qwen3.8 27B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        }
+      ],
+      "chairman": {
+        "modelId": "anthropic/claude-opus-5-5",
+        "displayName": "Claude Opus 5.5",
+        "kind": "cloud",
+        "providerId": "anthropic",
+        "nodeId": null
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "anthropic/claude-opus-5-5",
+      "displayName": "Claude Opus 5.5",
+      "kind": "cloud",
+      "providerId": "anthropic",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "openai/gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
+      "kind": "cloud",
+      "providerId": "openai",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/qwen3.8:27b",
+      "displayName": "Qwen3.8 27B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "openai/gpt-6.1-sol",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "thinking"
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "Pick SQLite unless you need "
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "replication, roles or heavy concurrent writes."
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "openai/gpt-6.1-sol",
+      "deltaText": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+      "latencyMs": 6200,
+      "ttftMs": 900,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 410,
+        "completionTokens": 38,
+        "reasoningTokens": 120
+      }
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "anthropic/claude-opus-5-5",
+      "deltaText": "For a single-user app SQLite is simpler: "
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "anthropic/claude-opus-5-5",
+      "deltaText": "no server, one file, WAL for concurrent reads."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "openai/gpt-6.1-sol",
+      "response": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access.",
+      "latencyMs": 7400,
+      "ttftMs": 1500,
+      "costUsd": 0.00138,
+      "usage": {
+        "promptTokens": 420,
+        "completionTokens": 96,
+        "reasoningTokens": 64
+      }
+    },
+    {
+      "type": "member_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+      "latencyMs": 9100,
+      "ttftMs": 2100,
+      "costUsd": 0.00412,
+      "usage": {
+        "promptTokens": 430,
+        "completionTokens": 120,
+        "reasoningTokens": 300
+      }
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+          "latency_ms": 6200,
+          "cost_usd": 0
+        },
+        {
+          "model": "openai/gpt-6.1-sol",
+          "response": "SQLite wins on operations; PostgreSQL wins once you need many writers or network access.",
+          "latency_ms": 7400,
+          "cost_usd": 0.00138
+        },
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+          "latency_ms": 9100,
+          "cost_usd": 0.00412
+        }
+      ]
+    },
+    {
+      "type": "stage2_start"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "openai/gpt-6.1-sol",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "ranking": [
+        "Response C",
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "openai/gpt-6.1-sol",
+      "ranking": [
+        "Response C",
+        "Response A",
+        "Response B"
+      ]
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "ranking": [
+        "Response C",
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response C\n2. Response B\n3. Response A",
+          "parsed_ranking": [
+            "Response C",
+            "Response B",
+            "Response A"
+          ]
+        },
+        {
+          "model": "openai/gpt-6.1-sol",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response C\n2. Response A\n3. Response B",
+          "parsed_ranking": [
+            "Response C",
+            "Response A",
+            "Response B"
+          ]
+        },
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response C\n2. Response B\n3. Response A",
+          "parsed_ranking": [
+            "Response C",
+            "Response B",
+            "Response A"
+          ]
+        }
+      ],
+      "metadata": {
+        "label_to_model": {
+          "Response A": "spark/qwen3.8:27b",
+          "Response B": "openai/gpt-6.1-sol",
+          "Response C": "anthropic/claude-opus-5-5"
+        },
+        "aggregate_rankings": [
+          {
+            "model": "anthropic/claude-opus-5-5",
+            "average_rank": 1.0,
+            "rankings_count": 3
+          },
+          {
+            "model": "openai/gpt-6.1-sol",
+            "average_rank": 2.33,
+            "rankings_count": 3
+          },
+          {
+            "model": "spark/qwen3.8:27b",
+            "average_rank": 2.67,
+            "rankings_count": 3
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Use SQLite for a single-user app. "
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Switch to PostgreSQL when you need concurrent writers, network access or replication."
+    },
+    {
+      "type": "final_ready",
+      "content": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+      "latencyMs": 11800,
+      "costUsd": 0.0098,
+      "model": "anthropic/claude-opus-5-5"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "anthropic/claude-opus-5-5",
+        "response": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+        "latency_ms": 11800,
+        "error": null
+      }
+    },
+    {
+      "type": "title_complete",
+      "data": {
+        "title": "SQLite vs PostgreSQL"
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0.0412,
+      "tokens": {
+        "prompt": 4180,
+        "completion": 610
+      },
+      "failures": [],
+      "status": "complete"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}

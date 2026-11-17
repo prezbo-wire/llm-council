@@ -1,0 +1,304 @@
+{
+  "name": "ranker-context-skip",
+  "description": "A ranker whose context is too small for the Stage-2 prompt is skipped (stage2_member_skipped reason context); it still counts as a Stage-1 response.",
+  "council": {
+    "members": [
+      "anthropic/claude-opus-5-5",
+      "spark/qwen3.8:27b",
+      "spark-vllm/Qwen/Qwen3.8-27B"
+    ],
+    "chairman": "anthropic/claude-opus-5-5"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "anthropic/claude-opus-5-5",
+          "displayName": "Claude Opus 5.5",
+          "kind": "cloud",
+          "providerId": "anthropic",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "spark/qwen3.8:27b",
+          "displayName": "Qwen3.8 27B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        },
+        {
+          "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+          "displayName": "Qwen3.8 27B (vLLM)",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark-vllm",
+          "canRank": true
+        }
+      ],
+      "chairman": {
+        "modelId": "anthropic/claude-opus-5-5",
+        "displayName": "Claude Opus 5.5",
+        "kind": "cloud",
+        "providerId": "anthropic",
+        "nodeId": null
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "anthropic/claude-opus-5-5",
+      "displayName": "Claude Opus 5.5",
+      "kind": "cloud",
+      "providerId": "anthropic",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/qwen3.8:27b",
+      "displayName": "Qwen3.8 27B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+      "displayName": "Qwen3.8 27B (vLLM)",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark-vllm",
+      "canRank": true
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+      "deltaText": "SQLite, with nightly backups of the single database file."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+      "response": "SQLite, with nightly backups of the single database file.",
+      "latencyMs": 3000,
+      "ttftMs": 400,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 380,
+        "completionTokens": 20,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "Pick SQLite unless you need replication, roles or heavy concurrent writes."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+      "latencyMs": 6000,
+      "ttftMs": 880,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 410,
+        "completionTokens": 38,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "anthropic/claude-opus-5-5",
+      "deltaText": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+      "latencyMs": 9000,
+      "ttftMs": 2000,
+      "costUsd": 0.00412,
+      "usage": {
+        "promptTokens": 430,
+        "completionTokens": 120,
+        "reasoningTokens": 300
+      }
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "spark-vllm/Qwen/Qwen3.8-27B",
+          "response": "SQLite, with nightly backups of the single database file.",
+          "latency_ms": 3000,
+          "cost_usd": 0
+        },
+        {
+          "model": "spark/qwen3.8:27b",
+          "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+          "latency_ms": 6000,
+          "cost_usd": 0
+        },
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+          "latency_ms": 9000,
+          "cost_usd": 0.00412
+        }
+      ]
+    },
+    {
+      "type": "stage2_start"
+    },
+    {
+      "type": "stage2_member_skipped",
+      "memberId": "spark-vllm/Qwen/Qwen3.8-27B",
+      "reason": "context"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "ranking": [
+        "Response C",
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "ranking": [
+        "Response C",
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response C\n2. Response B\n3. Response A",
+          "parsed_ranking": [
+            "Response C",
+            "Response B",
+            "Response A"
+          ]
+        },
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response C\n2. Response B\n3. Response A",
+          "parsed_ranking": [
+            "Response C",
+            "Response B",
+            "Response A"
+          ]
+        }
+      ],
+      "metadata": {
+        "label_to_model": {
+          "Response A": "spark-vllm/Qwen/Qwen3.8-27B",
+          "Response B": "spark/qwen3.8:27b",
+          "Response C": "anthropic/claude-opus-5-5"
+        },
+        "aggregate_rankings": [
+          {
+            "model": "anthropic/claude-opus-5-5",
+            "average_rank": 1.0,
+            "rankings_count": 2
+          },
+          {
+            "model": "spark/qwen3.8:27b",
+            "average_rank": 2.0,
+            "rankings_count": 2
+          },
+          {
+            "model": "spark-vllm/Qwen/Qwen3.8-27B",
+            "average_rank": 3.0,
+            "rankings_count": 2
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication."
+    },
+    {
+      "type": "final_ready",
+      "content": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+      "latencyMs": 11000,
+      "costUsd": 0.0091,
+      "model": "anthropic/claude-opus-5-5"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "anthropic/claude-opus-5-5",
+        "response": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+        "latency_ms": 11000,
+        "error": null
+      }
+    },
+    {
+      "type": "title_complete",
+      "data": {
+        "title": "SQLite vs PostgreSQL"
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0.0377,
+      "tokens": {
+        "prompt": 3900,
+        "completion": 520
+      },
+      "failures": [],
+      "status": "complete"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}

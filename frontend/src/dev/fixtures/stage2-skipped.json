@@ -1,0 +1,223 @@
+{
+  "name": "stage2-skipped",
+  "description": "Two of three members fail (one before streaming, one mid-stream, partial text kept); fewer than 2 responses so Stage 2 is skipped; no title (not the first message).",
+  "council": {
+    "members": [
+      "anthropic/claude-opus-5-5",
+      "google/gemini-4-argon",
+      "xai/grok-4.7"
+    ],
+    "chairman": "anthropic/claude-opus-5-5"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "anthropic/claude-opus-5-5",
+          "displayName": "Claude Opus 5.5",
+          "kind": "cloud",
+          "providerId": "anthropic",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "google/gemini-4-argon",
+          "displayName": "Gemini 4 Argon",
+          "kind": "cloud",
+          "providerId": "google",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "xai/grok-4.7",
+          "displayName": "Grok 4.7",
+          "kind": "cloud",
+          "providerId": "xai",
+          "nodeId": null,
+          "canRank": true
+        }
+      ],
+      "chairman": {
+        "modelId": "anthropic/claude-opus-5-5",
+        "displayName": "Claude Opus 5.5",
+        "kind": "cloud",
+        "providerId": "anthropic",
+        "nodeId": null
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "anthropic/claude-opus-5-5",
+      "displayName": "Claude Opus 5.5",
+      "kind": "cloud",
+      "providerId": "anthropic",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "google/gemini-4-argon",
+      "displayName": "Gemini 4 Argon",
+      "kind": "cloud",
+      "providerId": "google",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "xai/grok-4.7",
+      "displayName": "Grok 4.7",
+      "kind": "cloud",
+      "providerId": "xai",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_error",
+      "memberId": "google/gemini-4-argon",
+      "message": "No API key in Mese",
+      "code": "credential_missing",
+      "retryable": false
+    },
+    {
+      "type": "member_status",
+      "memberId": "xai/grok-4.7",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "thinking"
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "xai/grok-4.7",
+      "deltaText": "Partial "
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "anthropic/claude-opus-5-5",
+      "deltaText": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+      "latencyMs": 9000,
+      "ttftMs": 2000,
+      "costUsd": 0.00412,
+      "usage": {
+        "promptTokens": 430,
+        "completionTokens": 120,
+        "reasoningTokens": 300
+      }
+    },
+    {
+      "type": "member_error",
+      "memberId": "xai/grok-4.7",
+      "message": "upstream produced no data for 120s",
+      "code": "upstream_timeout",
+      "retryable": true
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+          "latency_ms": 9000,
+          "cost_usd": 0.00412
+        }
+      ]
+    },
+    {
+      "type": "stage2_skipped",
+      "reason": "fewer_than_two_responses"
+    },
+    {
+      "type": "stage2_complete",
+      "data": [],
+      "metadata": {
+        "label_to_model": {},
+        "aggregate_rankings": [],
+        "failures": [
+          {
+            "stage": "1",
+            "model": "google/gemini-4-argon",
+            "code": "credential_missing",
+            "message": "No API key in Mese"
+          },
+          {
+            "stage": "1",
+            "model": "xai/grok-4.7",
+            "code": "upstream_timeout",
+            "message": "upstream produced no data for 120s"
+          }
+        ]
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads."
+    },
+    {
+      "type": "final_ready",
+      "content": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+      "latencyMs": 8000,
+      "costUsd": 0.0052,
+      "model": "anthropic/claude-opus-5-5"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "anthropic/claude-opus-5-5",
+        "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+        "latency_ms": 8000,
+        "error": null
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0.0093,
+      "tokens": {
+        "prompt": 1290,
+        "completion": 240
+      },
+      "failures": [
+        {
+          "stage": "1",
+          "model": "google/gemini-4-argon",
+          "code": "credential_missing",
+          "message": "No API key in Mese"
+        },
+        {
+          "stage": "1",
+          "model": "xai/grok-4.7",
+          "code": "upstream_timeout",
+          "message": "upstream produced no data for 120s"
+        }
+      ],
+      "status": "partial"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}

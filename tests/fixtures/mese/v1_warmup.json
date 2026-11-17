@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "model": "spark/gpt-oss:120b",
+      "action": "skip",
+      "reason": "does not fit in free budget"
+    },
+    {
+      "model": "spark/qwen3.8:27b",
+      "action": "touch"
+    },
+    {
+      "model": "ft/legal-qwen-v3",
+      "action": "load",
+      "job_id": "job_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9a05"
+    },
+    {
+      "model": "anthropic/claude-opus-5-5",
+      "action": "none"
+    }
+  ]
+}

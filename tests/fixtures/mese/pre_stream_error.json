@@ -1,0 +1,39 @@
+{
+  "description": "Pre-flight failure (before any byte): a real HTTP status with the OpenAI error body; no SSE. Here: cloud provider without a key → 424 credential_missing.",
+  "requestId": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f07",
+  "request": {
+    "model": "google/gemini-4-argon",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 2+2?"
+      }
+    ],
+    "stream": true,
+    "mese": {
+      "client": "llm-council",
+      "run_id": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "conversation_id": "5b0c3e3a-1d2f-4c5b-9a8e-7f6d5c4b3a21",
+      "stage": "stage1",
+      "events": true
+    }
+  },
+  "status": 424,
+  "headers": {
+    "content-type": "application/json",
+    "x-mese-request-id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f07"
+  },
+  "body": {
+    "error": {
+      "message": "no API key configured for provider 'google'; add it in Mese admin",
+      "type": "invalid_request_error",
+      "code": "credential_missing",
+      "param": null,
+      "mese": {
+        "request_id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f07",
+        "retryable": false,
+        "phase": "admission"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04
+
+event: mese
+data: {"type":"started","attempt":1,"resolved":{"model":"xai/grok-4.7","kind":"cloud","provider_id":"xai","node_id":null,"host_id":null,"runtime":null,"upstream_model":"grok-4.7"}}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04","object":"chat.completion.chunk","created":1793000000,"model":"xai/grok-4.7","choices":[{"index":0,"delta":{"role":"assistant","content":"Partial answer"},"finish_reason":null}]}
+

@@ -1,0 +1,35 @@
+/* The primary action of an error (e.g. "Manage usage" for a ChatGPT plan usage limit). */
+.error-action {
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.error-action-primary {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: #4a90e2;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.error-action-primary:hover,
+.error-action-primary:focus-visible {
+  background: #357abd;
+  color: #fff;
+}
+
+.error-action-compact {
+  margin-left: 6px;
+  color: #4a90e2;
+  font-size: 12px;
+}
+
+.error-action-compact:hover {
+  text-decoration: underline;
+}

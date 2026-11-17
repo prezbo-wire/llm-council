@@ -1,0 +1,9 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f05
+
+event: mese
+data: {"type":"started","attempt":1,"resolved":{"model":"anthropic/claude-opus-5-5","kind":"cloud","provider_id":"anthropic","node_id":null,"host_id":null,"runtime":null,"upstream_model":"claude-opus-5-5"}}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f05","object":"chat.completion.chunk","created":1793000000,"model":"anthropic/claude-opus-5-5","choices":[{"index":0,"delta":{},"finish_reason":"content_filter"}],"usage":{"prompt_tokens":25,"completion_tokens":2,"total_tokens":27,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"cost":0.00014},"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f05","status":"ok","resolved":{"model":"anthropic/claude-opus-5-5","kind":"cloud","provider_id":"anthropic","node_id":null,"host_id":null,"runtime":null,"upstream_model":"claude-opus-5-5"},"cost_usd":0.00014,"cost_source":"computed","usage_source":"upstream","queue_ms":0,"load_ms":0,"ttft_ms":null,"latency_ms":900,"attempts":1,"dropped_params":[],"warnings":["refusal:cyber"]}}
+
+data: [DONE]
+

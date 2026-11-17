@@ -1,0 +1,11 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04
+
+event: mese
+data: {"type":"started","attempt":1,"resolved":{"model":"xai/grok-4.7","kind":"cloud","provider_id":"xai","node_id":null,"host_id":null,"runtime":null,"upstream_model":"grok-4.7"}}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04","object":"chat.completion.chunk","created":1793000000,"model":"xai/grok-4.7","choices":[{"index":0,"delta":{"role":"assistant","content":"Partial answer"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04","object":"chat.completion.chunk","created":1793000000,"model":"xai/grok-4.7","choices":[{"index":0,"delta":{},"finish_reason":"error"}],"error":{"message":"upstream produced no data for 120s","type":"upstream_error","code":"upstream_timeout","param":null,"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04","retryable":true,"phase":"idle"}},"usage":{"prompt_tokens":40,"completion_tokens":4,"total_tokens":44,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"cost":0.000104},"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f04","status":"error","resolved":{"model":"xai/grok-4.7","kind":"cloud","provider_id":"xai","node_id":null,"host_id":null,"runtime":null,"upstream_model":"grok-4.7"},"cost_usd":0.000104,"cost_source":"computed","usage_source":"estimated","queue_ms":0,"load_ms":0,"ttft_ms":2000,"latency_ms":122500,"attempts":1,"dropped_params":[],"warnings":["usage_estimated"]}}
+
+data: [DONE]
+

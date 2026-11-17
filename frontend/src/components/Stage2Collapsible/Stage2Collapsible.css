@@ -243,3 +243,104 @@
   color: #333;
   margin-bottom: 4px;
 }
+
+/* Static header (skipped) */
+.collapsible-header.static {
+  cursor: default;
+}
+
+.collapsible-header.static:hover {
+  background: #fafafa;
+}
+
+.skip-text {
+  font-size: 13px;
+  color: #888;
+  font-style: italic;
+}
+
+.quick-summary.warn {
+  background: #fff6e0;
+  color: #b7791f;
+}
+
+/* Per-ranker rows */
+.ranker-content {
+  padding: 10px 16px;
+}
+
+.ranker-notes {
+  margin-bottom: 16px;
+}
+
+.ranker-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ranker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #333;
+  min-width: 0;
+}
+
+.ranker-name {
+  flex-shrink: 0;
+  max-width: 50%;
+  font-weight: 500;
+}
+
+.ranker-status {
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ranker-failed .ranker-status {
+  color: #e74c3c;
+}
+
+.ranker-skipped .ranker-status {
+  color: #999;
+  font-style: italic;
+}
+
+.ranker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #ccc;
+}
+
+.ranker-dot-active {
+  background: #4a90e2;
+  animation: ranker-pulse 1.5s ease-in-out infinite;
+}
+
+.ranker-dot-done {
+  background: #27ae60;
+}
+
+.ranker-dot-failed {
+  background: #e74c3c;
+}
+
+.ranker-dot-skipped {
+  background: transparent;
+  border: 1px solid #bbb;
+}
+
+@keyframes ranker-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

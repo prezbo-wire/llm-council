@@ -1,0 +1,363 @@
+{
+  "name": "all-local-queue",
+  "description": "All-local council on one host: models queue for memory, load in waves, one retries; the fine-tune (can_rank=false) is Stage 1 only; cost 0; title generated locally.",
+  "council": {
+    "members": [
+      "spark/qwen3.8:27b",
+      "spark/gpt-oss:120b",
+      "ft/legal-qwen-v3"
+    ],
+    "chairman": "spark/gpt-oss:120b"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "spark/qwen3.8:27b",
+          "displayName": "Qwen3.8 27B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        },
+        {
+          "memberId": "spark/gpt-oss:120b",
+          "displayName": "gpt-oss 120B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        },
+        {
+          "memberId": "ft/legal-qwen-v3",
+          "displayName": "Legal Qwen v3",
+          "kind": "custom",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": false
+        }
+      ],
+      "chairman": {
+        "modelId": "spark/gpt-oss:120b",
+        "displayName": "gpt-oss 120B",
+        "kind": "local",
+        "providerId": null,
+        "nodeId": "spark"
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/qwen3.8:27b",
+      "displayName": "Qwen3.8 27B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/gpt-oss:120b",
+      "displayName": "gpt-oss 120B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "ft/legal-qwen-v3",
+      "displayName": "Legal Qwen v3",
+      "kind": "custom",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": false
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "queued",
+      "position": 1,
+      "nodeId": "spark",
+      "reason": "memory"
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "queued",
+      "position": 2,
+      "nodeId": "spark",
+      "reason": "memory"
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "thinking"
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "Pick SQLite unless you need replication, roles or heavy concurrent writes."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+      "latencyMs": 9000,
+      "ttftMs": 1200,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 410,
+        "completionTokens": 38,
+        "reasoningTokens": 140
+      }
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "loading",
+      "nodeId": "spark"
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "queued",
+      "position": 1,
+      "nodeId": "spark",
+      "reason": "memory"
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "thinking"
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/gpt-oss:120b",
+      "deltaText": "SQLite: single file, transactional, and fast enough for one user."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/gpt-oss:120b",
+      "response": "SQLite: single file, transactional, and fast enough for one user.",
+      "latencyMs": 61000,
+      "ttftMs": 52000,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 400,
+        "completionTokens": 30,
+        "reasoningTokens": 210
+      }
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "loading",
+      "nodeId": "spark"
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "retrying",
+      "attempt": 2,
+      "reason": "upstream_error"
+    },
+    {
+      "type": "member_status",
+      "memberId": "ft/legal-qwen-v3",
+      "state": "started",
+      "attempt": 2
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "ft/legal-qwen-v3",
+      "deltaText": "From a compliance view, SQLite's single file simplifies retention policies."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "ft/legal-qwen-v3",
+      "response": "From a compliance view, SQLite's single file simplifies retention policies.",
+      "latencyMs": 30000,
+      "ttftMs": 17000,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 405,
+        "completionTokens": 25,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+          "latency_ms": 9000,
+          "cost_usd": 0
+        },
+        {
+          "model": "spark/gpt-oss:120b",
+          "response": "SQLite: single file, transactional, and fast enough for one user.",
+          "latency_ms": 61000,
+          "cost_usd": 0
+        },
+        {
+          "model": "ft/legal-qwen-v3",
+          "response": "From a compliance view, SQLite's single file simplifies retention policies.",
+          "latency_ms": 30000,
+          "cost_usd": 0
+        }
+      ]
+    },
+    {
+      "type": "stage2_start"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "queued"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "ranking": [
+        "Response B",
+        "Response C",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/gpt-oss:120b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "spark/gpt-oss:120b",
+      "ranking": [
+        "Response B",
+        "Response A",
+        "Response C"
+      ]
+    },
+    {
+      "type": "stage2_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response B\n2. Response C\n3. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response C",
+            "Response A"
+          ]
+        },
+        {
+          "model": "spark/gpt-oss:120b",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response B\n2. Response A\n3. Response C",
+          "parsed_ranking": [
+            "Response B",
+            "Response A",
+            "Response C"
+          ]
+        }
+      ],
+      "metadata": {
+        "label_to_model": {
+          "Response A": "spark/qwen3.8:27b",
+          "Response B": "spark/gpt-oss:120b",
+          "Response C": "ft/legal-qwen-v3"
+        },
+        "aggregate_rankings": [
+          {
+            "model": "spark/gpt-oss:120b",
+            "average_rank": 1.0,
+            "rankings_count": 2
+          },
+          {
+            "model": "ft/legal-qwen-v3",
+            "average_rank": 2.5,
+            "rankings_count": 2
+          },
+          {
+            "model": "spark/qwen3.8:27b",
+            "average_rank": 2.5,
+            "rankings_count": 2
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication."
+    },
+    {
+      "type": "final_ready",
+      "content": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+      "latencyMs": 24000,
+      "costUsd": 0,
+      "model": "spark/gpt-oss:120b"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "spark/gpt-oss:120b",
+        "response": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+        "latency_ms": 24000,
+        "error": null
+      }
+    },
+    {
+      "type": "title_complete",
+      "data": {
+        "title": "SQLite for one user"
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0,
+      "tokens": {
+        "prompt": 3620,
+        "completion": 470
+      },
+      "failures": [],
+      "status": "complete"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}

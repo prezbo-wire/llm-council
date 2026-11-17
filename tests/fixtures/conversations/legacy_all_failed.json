@@ -1,0 +1,20 @@
+{
+  "id": "0dec6160-0000-4000-8000-000000000005",
+  "created_at": "2026-02-04T18:00:00.000000",
+  "title": "Untitled question",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize the attached report."
+    },
+    {
+      "role": "assistant",
+      "stage1": [],
+      "stage2": [],
+      "stage3": {
+        "model": "error",
+        "response": "All models failed to respond. Please try again."
+      }
+    }
+  ]
+}

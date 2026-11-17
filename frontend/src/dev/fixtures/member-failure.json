@@ -1,0 +1,282 @@
+{
+  "name": "member-failure",
+  "description": "One Stage-1 member fails before streaming (circuit_open) and one Stage-2 ranker fails (upstream_error); the stage still completes with the remaining ranking; run is partial.",
+  "council": {
+    "members": [
+      "anthropic/claude-opus-5-5",
+      "xai/grok-4.7",
+      "spark/qwen3.8:27b"
+    ],
+    "chairman": "anthropic/claude-opus-5-5"
+  },
+  "events": [
+    {
+      "type": "council_started",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "members": [
+        {
+          "memberId": "anthropic/claude-opus-5-5",
+          "displayName": "Claude Opus 5.5",
+          "kind": "cloud",
+          "providerId": "anthropic",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "xai/grok-4.7",
+          "displayName": "Grok 4.7",
+          "kind": "cloud",
+          "providerId": "xai",
+          "nodeId": null,
+          "canRank": true
+        },
+        {
+          "memberId": "spark/qwen3.8:27b",
+          "displayName": "Qwen3.8 27B",
+          "kind": "local",
+          "providerId": null,
+          "nodeId": "spark",
+          "canRank": true
+        }
+      ],
+      "chairman": {
+        "modelId": "anthropic/claude-opus-5-5",
+        "displayName": "Claude Opus 5.5",
+        "kind": "cloud",
+        "providerId": "anthropic",
+        "nodeId": null
+      }
+    },
+    {
+      "type": "member_queued",
+      "memberId": "anthropic/claude-opus-5-5",
+      "displayName": "Claude Opus 5.5",
+      "kind": "cloud",
+      "providerId": "anthropic",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "xai/grok-4.7",
+      "displayName": "Grok 4.7",
+      "kind": "cloud",
+      "providerId": "xai",
+      "nodeId": null,
+      "canRank": true
+    },
+    {
+      "type": "member_queued",
+      "memberId": "spark/qwen3.8:27b",
+      "displayName": "Qwen3.8 27B",
+      "kind": "local",
+      "providerId": null,
+      "nodeId": "spark",
+      "canRank": true
+    },
+    {
+      "type": "member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started",
+      "attempt": 1
+    },
+    {
+      "type": "member_error",
+      "memberId": "xai/grok-4.7",
+      "message": "Provider xai is temporarily unavailable (circuit open)",
+      "code": "circuit_open",
+      "retryable": true
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "spark/qwen3.8:27b",
+      "deltaText": "Pick SQLite unless you need replication, roles or heavy concurrent writes."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "spark/qwen3.8:27b",
+      "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+      "latencyMs": 6000,
+      "ttftMs": 880,
+      "costUsd": 0,
+      "usage": {
+        "promptTokens": 410,
+        "completionTokens": 38,
+        "reasoningTokens": 0
+      }
+    },
+    {
+      "type": "member_streaming",
+      "memberId": "anthropic/claude-opus-5-5",
+      "deltaText": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads."
+    },
+    {
+      "type": "member_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+      "latencyMs": 9000,
+      "ttftMs": 2000,
+      "costUsd": 0.00412,
+      "usage": {
+        "promptTokens": 430,
+        "completionTokens": 120,
+        "reasoningTokens": 300
+      }
+    },
+    {
+      "type": "stage1_complete",
+      "data": [
+        {
+          "model": "spark/qwen3.8:27b",
+          "response": "Pick SQLite unless you need replication, roles or heavy concurrent writes.",
+          "latency_ms": 6000,
+          "cost_usd": 0
+        },
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "response": "For a single-user app SQLite is simpler: no server, one file, WAL for concurrent reads.",
+          "latency_ms": 9000,
+          "cost_usd": 0.00412
+        }
+      ]
+    },
+    {
+      "type": "stage2_start"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "anthropic/claude-opus-5-5",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_status",
+      "memberId": "spark/qwen3.8:27b",
+      "state": "started"
+    },
+    {
+      "type": "stage2_member_error",
+      "memberId": "spark/qwen3.8:27b",
+      "code": "upstream_error",
+      "message": "upstream stream ended unexpectedly"
+    },
+    {
+      "type": "stage2_model_complete",
+      "memberId": "anthropic/claude-opus-5-5",
+      "ranking": [
+        "Response B",
+        "Response A"
+      ]
+    },
+    {
+      "type": "stage2_complete",
+      "data": [
+        {
+          "model": "anthropic/claude-opus-5-5",
+          "ranking": "Each response was evaluated for accuracy and insight.\n\nFINAL RANKING:\n1. Response B\n2. Response A",
+          "parsed_ranking": [
+            "Response B",
+            "Response A"
+          ]
+        }
+      ],
+      "metadata": {
+        "label_to_model": {
+          "Response A": "spark/qwen3.8:27b",
+          "Response B": "anthropic/claude-opus-5-5"
+        },
+        "aggregate_rankings": [
+          {
+            "model": "anthropic/claude-opus-5-5",
+            "average_rank": 1.0,
+            "rankings_count": 1
+          },
+          {
+            "model": "spark/qwen3.8:27b",
+            "average_rank": 2.0,
+            "rankings_count": 1
+          }
+        ],
+        "failures": [
+          {
+            "stage": "1",
+            "model": "xai/grok-4.7",
+            "code": "circuit_open",
+            "message": "Provider xai is temporarily unavailable (circuit open)"
+          },
+          {
+            "stage": "2",
+            "model": "spark/qwen3.8:27b",
+            "code": "upstream_error",
+            "message": "upstream stream ended unexpectedly"
+          }
+        ]
+      }
+    },
+    {
+      "type": "final_generating"
+    },
+    {
+      "type": "final_status",
+      "state": "started"
+    },
+    {
+      "type": "final_streaming",
+      "deltaText": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication."
+    },
+    {
+      "type": "final_ready",
+      "content": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+      "latencyMs": 10500,
+      "costUsd": 0.0081,
+      "model": "anthropic/claude-opus-5-5"
+    },
+    {
+      "type": "stage3_complete",
+      "data": {
+        "model": "anthropic/claude-opus-5-5",
+        "response": "Use SQLite for a single-user app. Switch to PostgreSQL when you need concurrent writers, network access or replication.",
+        "latency_ms": 10500,
+        "error": null
+      }
+    },
+    {
+      "type": "title_complete",
+      "data": {
+        "title": "SQLite vs PostgreSQL"
+      }
+    },
+    {
+      "type": "run_summary",
+      "runId": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "costUsd": 0.0302,
+      "tokens": {
+        "prompt": 3010,
+        "completion": 420
+      },
+      "failures": [
+        {
+          "stage": "1",
+          "model": "xai/grok-4.7",
+          "code": "circuit_open",
+          "message": "Provider xai is temporarily unavailable (circuit open)"
+        },
+        {
+          "stage": "2",
+          "model": "spark/qwen3.8:27b",
+          "code": "upstream_error",
+          "message": "upstream stream ended unexpectedly"
+        }
+      ],
+      "status": "partial"
+    },
+    {
+      "type": "complete"
+    }
+  ]
+}
