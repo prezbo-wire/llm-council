@@ -63,10 +63,14 @@ async def mese_health(request: Request) -> Dict[str, Any]:
 
 @router.post("/api/council/plan")
 async def council_plan(council: CouncilConfig, request: Request) -> Dict[str, Any]:
-    """Proxies ``POST /v1/mese/plan`` for the members plus the chairman (the picker debounces it)."""
+    """Proxies ``POST /v1/mese/plan`` for the members plus the chairman (the picker debounces it).
+
+    The chairman is also named, so Mese returns the ``turn`` simulation the picker's turn line shows;
+    the response passes through unchanged.
+    """
     models = list(dict.fromkeys([*council.members, council.chairman]))
     try:
-        return await get_ctx(request).client.plan(models)
+        return await get_ctx(request).client.plan(models, council.chairman)
     except MeseError as exc:
         raise mese_http_error(exc) from None
 

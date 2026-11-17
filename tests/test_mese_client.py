@@ -281,3 +281,38 @@ async def test_plan_warmup_and_status():
     down = await client.status()
     assert down["code"] == "mese_unreachable" and "error" in down
     await client.aclose()
+
+
+async def test_plan_names_the_chairman_only_when_given_and_returns_the_turn():
+    mock = MeseMock()
+    mock.plan = load_fixture_json("v1_plan_exclusive.json")
+    client = make_client(mock)
+    without = await client.plan(["spark/qwen3.8:27b"])
+    with_chair = await client.plan(["spark/qwen3.8:27b"], "spark/gpt-oss:120b")
+    await client.aclose()
+    sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
+    assert sent == [{"models": ["spark/qwen3.8:27b"]}, {"models": ["spark/qwen3.8:27b"], "chairman": "spark/gpt-oss:120b"}]
+    assert without == with_chair == mock.plan and with_chair["turn"]["loads"] == 1
+
+
+async def test_an_older_mese_that_rejects_the_plan_chairman_still_plans_the_members():
+    mock = MeseMock()
+    rejected = {"error": {"message": 'Unrecognized key: "chairman"', "type": "invalid_request_error",
+                          "code": "invalid_request", "param": None, "mese": {"request_id": "req_old", "retryable": False}}}
+
+    async def older_mese(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/mese/plan" and "chairman" in json.loads(request.content):
+            mock.requests.append(request)
+            return httpx.Response(400, json=rejected)
+        return await mock.handler(request)
+
+    client = MeseClient(TEST_MESE_URL, TEST_MESE_TOKEN, transport=httpx.MockTransport(older_mese))
+    assert await client.plan(["spark/qwen3.8:27b"], "spark/gpt-oss:120b") == mock.plan
+    sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
+    assert sent == [{"models": ["spark/qwen3.8:27b"], "chairman": "spark/gpt-oss:120b"}, {"models": ["spark/qwen3.8:27b"]}]
+    await client.aclose()
+    bad = make_client(mock, token="mese_ck_bad")  # any other failure is not retried
+    with pytest.raises(MeseError) as unauthorized:
+        await bad.plan(["spark/qwen3.8:27b"], "spark/gpt-oss:120b")
+    await bad.aclose()
+    assert unauthorized.value.code == "unauthorized" and len([r for r in mock.requests if r.url.path == "/v1/mese/plan"]) == 3

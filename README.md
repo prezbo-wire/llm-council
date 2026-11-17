@@ -28,11 +28,12 @@ cd frontend && npm install && cd ..
 ### 2. Run Mese first
 
 [Mese](../mese) is the model router (repo `/Users/prezbo/Development/mese`). It holds the provider API keys
-and the local nodes (DGX Spark, Mac minis), loads local models on demand and records usage and cost.
-llm-council only talks to Mese, over HTTP with a bearer token.
+and the local models on the DGX Spark, the only inference host (Ollama, plus optional llama.cpp and vLLM
+nodes). It keeps a resident set of small local models loaded, swaps bigger ones in when they are needed, and
+records usage and cost. llm-council only talks to Mese, over HTTP with a bearer token.
 
-**Default: Mese on the DGX Spark.** Mese runs on the Spark as a systemd user service, next to Ollama, and
-serves its API on the Spark's tailnet IP (port 8790). On the Spark, in the mese checkout:
+**Mese runs on the DGX Spark.** It runs there as a systemd user service, next to Ollama, and serves its API on
+the Spark's tailnet IP (port 8790). On the Spark, in the mese checkout:
 
 ```bash
 deploy/spark/install-user.sh     # no sudo; bun, build, keyring file, ~/.mese tokens, the service; prints only paths
@@ -46,15 +47,18 @@ ssh -N -L 8791:127.0.0.1:8791 spark     # "spark" = the Spark's SSH host, e.g. s
 open http://127.0.0.1:8791/admin/       # log in with the Spark's ~/.mese/admin-token
 ```
 
-Keys, nodes, model loading and usage are managed there, not in llm-council.
+Keys, nodes, each local model's residency (resident, on demand or exclusive), model loading and usage are
+managed there, not in llm-council.
 
-**Alternative: Mese on this machine.** In the mese repo: `bun install --frozen-lockfile`, `bun run mese:init`,
-`bun run build && bun src/server/main.ts` (inference on 127.0.0.1:8790, admin on 127.0.0.1:8791). Then
-`MESE_URL` can stay at its default and the token is the local `~/.mese/tokens/llm-council.token`.
+**Development only: Mese on the Mac.** Mese's README "Run locally" starts a Mese on the Mac (for example with
+mocked upstreams). Then `MESE_URL` can stay at its default and the token is the local
+`~/.mese/tokens/llm-council.token`. No real local model runs on the Mac.
 
 ### 3. Configure llm-council
 
-Settings live in `.env` in the project root (see `.env.example`). With Mese on the Spark:
+llm-council is deployed on the Spark next to Mese ("Option 3" below, which writes its own configuration).
+Running it on the Mac is for development: settings then live in `.env` in the project root (see
+`.env.example`), pointing at the Spark's Mese:
 
 ```bash
 MESE_URL=http://<spark tailnet IPv4>:8790   # the Spark's `tailscale ip -4`; its MagicDNS name works too
@@ -70,10 +74,10 @@ token="$(ssh spark 'cat ~/.mese/tokens/llm-council.token')" && [ -n "$token" ] &
 unset token
 ```
 
-(With Mese on this machine, use `cat ~/.mese/tokens/llm-council.token` instead of the `ssh` command.)
+(With a development Mese on the Mac, use `cat ~/.mese/tokens/llm-council.token` instead of the `ssh` command.)
 Check that the Mac reaches Mese: `curl -fsS http://<spark tailnet IPv4>:8790/healthz` prints `{"ok":true}`.
-If it times out, check the tailnet ACL (the Mac must be allowed to reach the Spark on 8790; Mese's
-`deploy/tailscale-acl.hujson`) and `systemctl --user status mese` on the Spark.
+If it times out, check the tailnet ACL (a development Mac reaches the Spark's 8790 only through the optional
+`dev-mac` rule in Mese's `deploy/tailscale-acl.hujson`) and `systemctl --user status mese` on the Spark.
 
 `MESE_API_KEY` is only read from the environment or `.env` and is never logged or sent to the browser.
 Optional settings:
@@ -92,10 +96,10 @@ Optional settings:
 
 The backend has **no authentication**, and it listens on `0.0.0.0:8001` by default, so every interface of
 this machine accepts it, the LAN included. Anyone who can reach that port can read every conversation and
-run councils with llm-council's Mese token, spending money on your cloud keys. With Mese on the Spark this
-matters more: Mese itself is reachable only from this Mac over the tailnet, but llm-council forwards any
-request it receives to Mese with its own token. (Whether to change the default bind is an open decision; the
-default is unchanged for now.)
+run councils with llm-council's Mese token, spending money on your cloud keys. Mese's own API is reachable only
+from the Spark itself and the tailnet ACL's development Mac, but llm-council forwards any request it receives to
+Mese with its own token. (The Spark deployment binds the backend to the tailnet IP; whether to change the
+default bind of a manual run is an open decision, and it is unchanged for now.)
 
 Ways to narrow it:
 
@@ -118,27 +122,42 @@ catalog ids such as `anthropic/claude-opus-5-5`, `spark/qwen3.8:27b` or `ft/lega
 
 One-click presets:
 
-- **All local**: up to 4 local models (loaded ones first); the local model with the largest context chairs. Costs $0.
+- **All local**: up to 4 local models, resident ones first (Mese keeps them loaded, so the turn swaps no model),
+  then loaded ones, then the largest. Models Mese runs exclusively (they unload the resident models while they
+  run) join only when fewer than 2 members were found. The resident model with the largest context chairs;
+  with no resident chair, the local model with the largest context. Costs $0.
 - **Frontier cloud**: the available frontier cloud models; the default chair leads.
-- **Hybrid**: the two cheapest frontier cloud models plus two local models.
+- **Hybrid**: the two cheapest frontier cloud models plus the first two local models of "All local".
 
 Built-in presets are resolved against the live Mese catalog each time, so they keep working as models come
-and go. Your own presets are saved in `data/presets.json`. Models that are unavailable (no key, node down)
-can still be picked; they fail fast with an explicit error card instead of being silently dropped.
+and go. A big exclusive chair (for example gpt-oss 120B) is a manual pick or one of your own presets, saved in
+`data/presets.json`. Models that are unavailable (no key, node down) can still be picked; they fail fast with
+an explicit error card instead of being silently dropped.
+
+Each local model row shows how Mese keeps it in memory: **Resident** (always loaded), **Resident · reloading**,
+**On demand · ~N s** (loads into spare memory on first use), **Exclusive · ~N s** (unloads resident models while
+it runs; they reload afterwards) or **Exclusive (auto)** (too big to fit beside the resident models), plus
+**Slow · ~N tok/s** and **CPU offload** when Mese has measured them. Under the picker, the turn line says what
+the next question costs in model loads, for example "Local: no model loads" or "Local: 1 model load (+~48 s);
+residents reload ~52 s later". The residency class is set per model in Mese admin.
 
 ### Migrating from the OpenRouter version
 
 Existing conversations in `data/conversations/` load unchanged; old model ids are shown with a "Legacy"
 badge and are never remapped to other models.
 
-1. Install Mese: on the Spark, `deploy/spark/install-user.sh` in the mese checkout (or, locally, `bun run mese:init`).
-2. In the Mese admin panel: add your provider keys and the Spark node.
+1. Install Mese on the Spark: `deploy/spark/install-user.sh` in the mese checkout.
+2. In the Mese admin panel: add your provider keys and the Spark node, and mark the small local models that
+   should stay loaded as resident.
 3. Set `MESE_URL` (with Mese on the Spark) and copy the Mese host's `~/.mese/tokens/llm-council.token` into
    llm-council's `.env` as `MESE_API_KEY`, as shown in "Configure llm-council".
 4. Start llm-council.
 5. Remove `OPENROUTER_API_KEY` from `.env` and revoke it at OpenRouter.
 
 ## Running the Application
+
+The deployed llm-council runs on the Spark (Option 3). Options 1 and 2 run it on the Mac for development,
+against the Spark's Mese.
 
 **Option 1: Use the start script**
 ```bash
@@ -169,7 +188,7 @@ To access from another device on your LAN or tailnet, open `http://<HOST_IP>:517
 backend at `http://<HOST_IP>:8001`, so that port must be reachable and the origin must be in
 `COUNCIL_ALLOWED_ORIGINS` (the start scripts handle this; the same list is the backend's `Host` allowlist).
 
-**Option 3: On the DGX Spark, next to Mese**
+**Option 3: On the DGX Spark, next to Mese (the deployment)**
 
 With Mese already installed on the Spark (its `deploy/spark/install-user.sh`), run this on the Mac:
 
@@ -198,7 +217,7 @@ network, real keys or real models.
 ## Tech Stack
 
 - **Backend:** FastAPI (Python 3.10+), async httpx client for Mese
-- **Models:** [Mese](../mese) (cloud providers direct, plus local Ollama, llama.cpp, vLLM and LM Studio nodes)
+- **Models:** [Mese](../mese) (cloud providers direct, plus local Ollama, llama.cpp and vLLM nodes on the DGX Spark)
 - **Frontend:** React + Vite
 - **Storage:** JSON files in `data/conversations/` (atomic writes) and `data/presets.json`
 - **Package Management:** uv for Python, npm for JavaScript

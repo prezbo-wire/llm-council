@@ -1,0 +1,108 @@
+{
+  "feasible": true,
+  "items": [
+    {
+      "model": "spark/qwen3.6:35b-a3b-q4_K_M",
+      "kind": "local",
+      "state": "loaded",
+      "host_id": "spark",
+      "est_bytes": 30000000000,
+      "est_load_s": 0,
+      "reason": null,
+      "residency": "resident",
+      "displaces": []
+    },
+    {
+      "model": "spark/gemma4:26b-a4b-it-q4_K_M",
+      "kind": "local",
+      "state": "loaded",
+      "host_id": "spark",
+      "est_bytes": 22500000000,
+      "est_load_s": 0,
+      "reason": null,
+      "residency": "resident",
+      "displaces": []
+    },
+    {
+      "model": "spark/nemotron-3.5-bolt:latest",
+      "kind": "local",
+      "state": "loaded",
+      "host_id": "spark",
+      "est_bytes": 31250000000,
+      "est_load_s": 0,
+      "reason": null,
+      "residency": "resident",
+      "displaces": []
+    },
+    {
+      "model": "spark/gpt-oss:20b",
+      "kind": "local",
+      "state": "loaded",
+      "host_id": "spark",
+      "est_bytes": 17500000000,
+      "est_load_s": 0,
+      "reason": null,
+      "residency": "resident",
+      "displaces": []
+    },
+    {
+      "model": "spark/gpt-oss:120b",
+      "kind": "local",
+      "state": "will_load",
+      "host_id": "spark",
+      "est_bytes": 81250000000,
+      "est_load_s": 48.3,
+      "reason": null,
+      "residency": "exclusive",
+      "displaces": [
+        "spark/qwen3.6:35b-a3b-q4_K_M",
+        "spark/gemma4:26b-a4b-it-q4_K_M",
+        "spark/gpt-oss:20b"
+      ]
+    }
+  ],
+  "hosts": [
+    {
+      "host_id": "spark",
+      "budget_bytes": 113500000000,
+      "resident_bytes": 101250000000,
+      "required_bytes": 182500000000,
+      "schedule": "waves",
+      "est_extra_load_s": 48.3,
+      "resident_set_bytes": 101250000000,
+      "flex_bytes": 12250000000
+    }
+  ],
+  "warnings": [
+    {
+      "code": "exclusive",
+      "model": "spark/gpt-oss:120b",
+      "host_id": "spark",
+      "message": "spark/gpt-oss:120b (chair) is exclusive on spark: Stage 3 unloads 3 resident models (~70 GB), +~48 s; they reload ~52 s later"
+    },
+    {
+      "code": "waves",
+      "host_id": "spark",
+      "message": "spark: runs in 2 waves, +~48 s"
+    }
+  ],
+  "turn": {
+    "loads": 1,
+    "load_s": 48.3,
+    "restore_s": 52.3,
+    "stages": [
+      {
+        "stage": "stage3",
+        "loads": [
+          "spark/gpt-oss:120b"
+        ],
+        "evicts": [
+          "spark/qwen3.6:35b-a3b-q4_K_M",
+          "spark/gemma4:26b-a4b-it-q4_K_M",
+          "spark/gpt-oss:20b"
+        ],
+        "load_s": 48.3
+      }
+    ]
+  }
+}

@@ -8,15 +8,23 @@ atomically.
 =========================  ====================================================  ==========================
 Built-in                   Members                                               Chairman
 =========================  ====================================================  ==========================
-``builtin:all-local``      up to 4 available local/custom models with           the available local model
-                           ``can_rank``: loaded first, then largest size         with ``can_chair`` and the
-                                                                                 largest context (ties: size)
+``builtin:all-local``      up to 4 available local/custom models with            the resident local model
+                           ``can_rank``: resident first, then loaded, then       with ``can_chair`` and the
+                           largest size; models Mese runs exclusively only       largest context (ties:
+                           to reach 2 members (largest first)                    size), else any available
+                                                                                 local ``can_chair`` model
+                                                                                 by the same rule
 ``builtin:frontier-cloud`` available cloud models tagged ``frontier`` (max 5)    the ``default_chair`` model,
                                                                                  else the first frontier
                                                                                  model with ``can_chair``
 ``builtin:hybrid``         the 2 cheapest available frontier cloud models plus   as frontier-cloud
                            the first 2 of the all-local selection
 =========================  ====================================================  ==========================
+
+Residency is Mese's effective class (``CouncilModel.residency``, Mese ARCHITECTURE §G.6): resident models stay
+loaded, so an all-local council of residents swaps no model in or out. A model with no residency data (an older
+Mese) counts as on_demand, which gives exactly the v1 selection. A big exclusive chair is a user preset or a
+manual pick, never a built-in.
 
 ``builtin:last-used`` ("Last used", listed first) is the council of the most recent message a send route
 accepted, kept in ``<data_dir>/last_council.json`` by :class:`LastUsedStore`. It is a moving pointer, so it
@@ -45,12 +53,15 @@ LAST_USED_FILE_VERSION = 1
 LAST_USED_PRESET_ID = "builtin:last-used"
 _PRESET_REF_RE = re.compile(PRESET_REF_PATTERN)
 ALL_LOCAL_MAX = 4
+#: Exclusive models join the all-local members only while there are fewer than this many.
+LOCAL_MIN_MEMBERS = 2
 FRONTIER_MAX = 5
 HYBRID_CLOUD = 2
 HYBRID_LOCAL = 2
 
 _BUILTIN_META = {
-    "builtin:all-local": ("All local", "Local models only: nothing leaves your machines and runs cost $0."),
+    "builtin:all-local": ("All local", "Local models only, resident ones first: nothing leaves your machines and "
+                                       "runs cost $0."),
     "builtin:frontier-cloud": ("Frontier cloud", "The available frontier cloud models; the default chair leads."),
     "builtin:hybrid": ("Hybrid", "The two cheapest frontier cloud models plus two local models."),
 }
@@ -75,19 +86,44 @@ def _available(models: List[CouncilModel]) -> List[CouncilModel]:
     return [m for m in models if m["available"]]
 
 
+def residency_of(model: CouncilModel) -> str:
+    """The model's effective residency class; no residency data (cloud, an older Mese) counts as on_demand."""
+    residency = model.get("residency")
+    return residency["effective"] if residency else "on_demand"
+
+
+def _by_size(model: CouncilModel) -> int:
+    return -(model["size_bytes"] or 0)
+
+
 def select_local_members(models: List[CouncilModel], limit: int = ALL_LOCAL_MAX) -> List[str]:
-    """Available local/custom rankers: loaded ones first, then by size descending (stable)."""
+    """Available local/custom rankers: resident first, then loaded, then by size descending (stable).
+
+    Exclusive models (configured, or "auto" because they cannot fit beside the resident set) unload residents
+    while they run, so they are appended, largest first, only while fewer than 2 members were found.
+    """
     candidates = [m for m in _available(models) if m["kind"] in LOCAL_KINDS and m["can_rank"]]
-    candidates.sort(key=lambda m: (m["load_state"] != "loaded", -(m["size_bytes"] or 0)))
-    return [m["id"] for m in candidates[:limit]]
+    primary = [m for m in candidates if residency_of(m) != "exclusive"]
+    primary.sort(key=lambda m: (residency_of(m) != "resident", m["load_state"] != "loaded", _by_size(m)))
+    picked = primary[:limit]
+    wanted = min(LOCAL_MIN_MEMBERS, limit)
+    if len(picked) < wanted:
+        exclusive = sorted((m for m in candidates if residency_of(m) == "exclusive"), key=_by_size)
+        picked += exclusive[: wanted - len(picked)]
+    return [m["id"] for m in picked]
 
 
 def select_local_chair(models: List[CouncilModel]) -> Optional[str]:
-    """The available local ``can_chair`` model with the largest context, ties broken by largest size."""
+    """The resident local ``can_chair`` model with the largest context, ties broken by largest size.
+
+    With no resident chair, the same rule over every available local ``can_chair`` model, so an exclusive
+    model still chairs when nothing is resident.
+    """
     candidates = [m for m in _available(models) if m["kind"] in LOCAL_KINDS and m["can_chair"]]
     if not candidates:
         return None
-    best = max(candidates, key=lambda m: (m["context_length"] or 0, m["size_bytes"] or 0))
+    residents = [m for m in candidates if residency_of(m) == "resident"]
+    best = max(residents or candidates, key=lambda m: (m["context_length"] or 0, m["size_bytes"] or 0))
     return best["id"]
 
 

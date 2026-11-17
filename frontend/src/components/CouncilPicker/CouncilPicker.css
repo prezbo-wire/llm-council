@@ -160,6 +160,33 @@
   content: '⚠ ';
 }
 
+/* Plan warnings render as plan-<Mese warning code>; the residency ones match the row pills. */
+.picker-warning.plan-exclusive {
+  color: #8e44ad;
+}
+
+.picker-warning.plan-slow {
+  color: #d35400;
+}
+
+.picker-warning.plan-cpu_offload {
+  color: #c0392b;
+  font-weight: 500;
+}
+
+/* The turn line from plan.turn: model loads the next question would cause. */
+.picker-turn {
+  color: #666;
+}
+
+.picker-turn.turn-none {
+  color: #1e8c4d;
+}
+
+.picker-turn.turn-loads {
+  color: #8e44ad;
+}
+
 /* ── Expanded ── */
 .council-picker.expanded {
   padding-top: 12px;

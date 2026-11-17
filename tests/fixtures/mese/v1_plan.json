@@ -8,7 +8,9 @@
       "host_id": null,
       "est_bytes": null,
       "est_load_s": null,
-      "reason": null
+      "reason": null,
+      "residency": null,
+      "displaces": []
     },
     {
       "model": "openai/gpt-6.1-sol",
@@ -17,7 +19,9 @@
       "host_id": null,
       "est_bytes": null,
       "est_load_s": null,
-      "reason": null
+      "reason": null,
+      "residency": null,
+      "displaces": []
     },
     {
       "model": "spark/qwen3.8:27b",
@@ -26,7 +30,9 @@
       "host_id": "spark",
       "est_bytes": 18253611008,
       "est_load_s": 0,
-      "reason": null
+      "reason": null,
+      "residency": "on_demand",
+      "displaces": []
     },
     {
       "model": "spark/gpt-oss:120b",
@@ -35,7 +41,9 @@
       "host_id": "spark",
       "est_bytes": 87241523200,
       "est_load_s": 51.5,
-      "reason": null
+      "reason": null,
+      "residency": "on_demand",
+      "displaces": []
     },
     {
       "model": "ft/legal-qwen-v3",
@@ -44,7 +52,9 @@
       "host_id": "spark",
       "est_bytes": 21474836480,
       "est_load_s": 16.5,
-      "reason": null
+      "reason": null,
+      "residency": "on_demand",
+      "displaces": []
     },
     {
       "model": "xai/grok-4.7",
@@ -53,7 +63,9 @@
       "host_id": null,
       "est_bytes": null,
       "est_load_s": null,
-      "reason": "circuit_open"
+      "reason": "circuit_open",
+      "residency": null,
+      "displaces": []
     }
   ],
   "hosts": [
@@ -63,7 +75,9 @@
       "resident_bytes": 18253611008,
       "required_bytes": 126969970688,
       "schedule": "waves",
-      "est_extra_load_s": 51.5
+      "est_extra_load_s": 51.5,
+      "resident_set_bytes": 0,
+      "flex_bytes": 97066260890
     }
   ],
   "warnings": [
@@ -87,5 +101,6 @@
       "model": "xai/grok-4.7",
       "message": "xai/grok-4.7 is unavailable (circuit_open)"
     }
-  ]
+  ],
+  "turn": null
 }

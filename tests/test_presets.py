@@ -20,11 +20,13 @@ USED_AT = "2026-11-17T12:00:00Z"
 
 def _model(model_id: str, kind: str, *, available: bool = True, tags: Optional[List[str]] = None, can_rank: bool = True,
            can_chair: bool = True, ctx: Optional[int] = 32768, size: Optional[int] = None, load: Optional[str] = None,
-           price: tuple = ("0", "0")) -> Dict[str, Any]:
+           price: tuple = ("0", "0"), residency: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """A ``V1Model``; ``residency`` is ``mese.residency`` (None: cloud, or a Mese without residency data)."""
     entry = copy.deepcopy(BASE[0] if kind == "cloud" else BASE[7])
     entry.update(id=model_id, name=model_id, context_length=ctx, pricing={"prompt": price[0], "completion": price[1]})
     entry["mese"].update(kind=kind, display_name=model_id, available=available, tags=tags or [], can_rank=can_rank,
-                         can_chair=can_chair, size_bytes=size, load_state=load if kind != "cloud" else None, aliases=[])
+                         can_chair=can_chair, size_bytes=size, load_state=load if kind != "cloud" else None, aliases=[],
+                         residency=residency)
     return entry
 
 

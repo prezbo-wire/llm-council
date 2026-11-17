@@ -17,19 +17,22 @@ lists the normative `MemberResult` for each one.
 
 ## Where Mese runs
 
-The default deployment (Mese ARCHITECTURE §A, runbook in Mese's `docs/deploy.md` §2) puts **Mese on the
-DGX Spark** and llm-council on the Mac:
+**Mese runs on the DGX Spark**, the only inference host (Mese ARCHITECTURE §A, runbook in Mese's
+`docs/deploy.md` §2). llm-council is deployed next to it with `deploy/spark/deploy.sh` (systemd `--user`
+units `llm-council` and `llm-council-ui` on the Spark's tailnet IP, `:8001` and `:5173`); its
+`~/.config/llm-council/mese-token.env` is rewritten from Mese's token file on every install. The Mac is the
+browser and the development machine. A development run of llm-council on the Mac uses `.env`:
 
-| Setting (llm-council `.env`) | Value |
+| Setting (llm-council `.env`, development on the Mac) | Value |
 |---|---|
-| `MESE_URL` | `http://<spark tailnet IPv4>:8790`. Mese binds `/v1` to the Spark's tailnet IP; the tailnet ACL admits only the llm-council Mac on 8790. |
+| `MESE_URL` | `http://<spark tailnet IPv4>:8790`. Mese binds `/v1` to the Spark's tailnet IP; the tailnet ACL admits a development Mac on 8790 only through its optional `dev-mac` rule. |
 | `MESE_API_KEY` | the contents of `~/.mese/tokens/llm-council.token` **on the Spark**, copied with `ssh` straight into `.env` so it is never printed (README "Configure llm-council") |
-| `MESE_ADMIN_URL` | the default `http://127.0.0.1:8791/admin/`; it works while `ssh -N -L 8791:127.0.0.1:8791 spark` is open, because the admin listener is loopback-only on the Spark |
+| `MESE_ADMIN_URL` | the default `http://127.0.0.1:8791/admin/`; it works while `ssh -N -L 8791:127.0.0.1:8791 spark` is open, because the admin listener is loopback-only on the Spark by default |
 
 The start scripts check `GET $MESE_URL/healthz` (no token needed) and, if it fails, say whether to set
 `MESE_URL` or to check the ACL and `systemctl --user status mese` on the Spark. `GET /api/mese/health`
-reports `ok`, `token_set` and `locked` without ever returning the token. With Mese on the same machine
-(the Mac-hosted alternative) the defaults apply unchanged.
+reports `ok`, `token_set` and `locked` without ever returning the token. A Mese started on the Mac for
+development (Mese README "Run locally") works with the defaults unchanged; no real local model runs there.
 
 The backend itself has no authentication and binds `0.0.0.0` by default, so it is a credentialed bridge to
 the tailnet-only Mese for anyone who can reach port 8001. The README's "Exposure" section explains
@@ -50,6 +53,30 @@ the tailnet-only Mese for anyone who can reach port 8001. The README's "Exposure
 - `stage3.cost_usd` carries the chairman's cost, also on failure.
 - Requests whose `Host` header is not a CORS origin hostname, loopback or a specific `COUNCIL_HOST` get
   400 `invalid_host`.
+
+## Residency (Mese ARCHITECTURE §G.6)
+
+Mese gives every local model row a residency class: `on_demand` (the default), `resident` (preloaded, kept
+loaded and restored after a displacement) or `exclusive` (loads only when needed, unloading the fewest
+resident bytes it must; the residents reload afterwards). A model that cannot fit beside the resident set is
+effectively exclusive ("exclusive (auto)"). The class is set per model in Mese admin; llm-council only reads it.
+
+- **Catalog:** `CouncilModel.residency` copies only `class` (as `effective`), `configured`, `est_load_s`
+  (`0` when loaded) and `observed_tok_s` from `/v1/models` `mese.residency`. It is null for cloud models,
+  runtimes Mese does not load, and an older Mese; null counts as `on_demand`.
+- **Presets:** `builtin:all-local` (and the local half of `builtin:hybrid`) is resident-first, and exclusive
+  models join only to reach 2 members; the chair is the resident `can_chair` model with the largest context,
+  else the v1 rule over every local `can_chair` model. Without residency data the selection is exactly v1's.
+  There is no built-in with a big exclusive chair: pick it, or save it as your own preset.
+- **Plan:** `POST /api/council/plan` sends the chairman as `chairman`, so Mese also simulates the turn and
+  returns `turn` (`loads`, `load_s`, `restore_s`, `stages`), which passes through unchanged (an older Mese
+  that rejects `chairman` with 400 `invalid_request` is asked again without it, and has no turn line). Warnings
+  `exclusive`, `slow` and `cpu_offload` render like every other warning, as `plan-<code>` lines.
+- **Picker:** each local row shows a pill (Resident, Resident · reloading, On demand · ~N s, Exclusive · ~N s,
+  Exclusive (auto) · ~N s), plus Slow · ~N tok/s below 10 tok/s and CPU offload when the plan warns about it.
+  The turn line reads "Local: no model loads" or "Local: 1 model load (+~48 s); residents reload ~52 s later".
+- **Runs:** unchanged. The chairman warmup stays best-effort; Mese answers `skip` for an exclusive model, which
+  then loads when Stage 3 needs it.
 
 The sections below are a copy of Mese ARCHITECTURE §I.5–§I.7 as of 2026-10-28. If they ever disagree,
 the Mese document wins.
@@ -74,7 +101,7 @@ Bodies are snake_case. Pydantic models live in `backend/schemas.py` (WP0).
 |---|---|---|
 | `GET /api/models` | `?refresh=1` (optional) bypasses the backend's 10 s catalog cache; the frontend sends it when Mese comes back or its health signature changes | `{"mese": {"ok": true, "admin_url": "http://127.0.0.1:8791/admin/"}, "models": [CouncilModel]}`; 503 if Mese is down |
 | `GET /api/mese/health` | – | `{"ok", "url", "admin_url", "token_set", "latency_ms", "version", "locked", "nodes_up", "nodes_total", "providers_configured", "breakers_open", "error"}`. Never contains the token. |
-| `POST /api/council/plan` | `CouncilConfig` | `V1PlanResponse` (proxied) |
+| `POST /api/council/plan` | `CouncilConfig` | `V1PlanResponse` (proxied with `chairman`, so `turn` is set; see "Residency" above) |
 | `GET /api/presets` | – | `{"presets": [Preset]}`: "Last used" (`builtin:last-used`) first, then the built-ins (resolved at request time), then user presets. |
 | `PUT /api/presets/{id}` | `{"name", "members", "chairman"}` (`id` matches `^[a-z0-9-]{1,40}$`) | `Preset`; 409 for `builtin:*` |
 | `DELETE /api/presets/{id}` | – | 204; 409 for `builtin:*` |
@@ -97,6 +124,8 @@ interface CouncilModel {
   provider: { id: string; name: string } | null;
   node: { id: string; name: string; runtime: string; host_id: string } | null;
   available: boolean; unavailable_reason: string | null; load_state: string | null;
+  residency: { effective: 'on_demand' | 'resident' | 'exclusive'; configured: 'on_demand' | 'resident' | 'exclusive';
+               est_load_s: number | null; observed_tok_s: number | null } | null;   // llm-council addition (§G.6)
   can_rank: boolean; can_chair: boolean; context_length: number | null; size_bytes: number | null;
   price_per_mtok: { input: number; output: number } | null;   // USD per 1M; null for local/unknown
   price_verified: boolean | null; tags: string[];
@@ -121,7 +150,7 @@ interface ConversationCouncil { members: string[]; chairman: string; preset_id: 
 
 | Built-in | Members | Chairman |
 |---|---|---|
-| `builtin:all-local` | Up to 4 available `local`/`custom` models with `can_rank`, loaded ones first, then by `size_bytes` descending. | The available local `can_chair` model with the largest `context_length`, ties broken by largest size. |
+| `builtin:all-local` | Up to 4 available `local`/`custom` models with `can_rank`: resident first, then loaded, then by `size_bytes` descending. Effective-exclusive models are appended (largest first) only to reach 2 members. | The resident local `can_chair` model with the largest `context_length` (ties: largest size); with none, the available local `can_chair` model with the largest `context_length`, ties broken by largest size. |
 | `builtin:frontier-cloud` | Available cloud models tagged `frontier`, at most 5. | The model tagged `default_chair`, else the first frontier model with `can_chair`. |
 | `builtin:hybrid` | The 2 cheapest available `frontier` cloud models, plus the 2 local models chosen by the all-local rule. | As frontier-cloud. |
 

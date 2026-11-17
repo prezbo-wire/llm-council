@@ -210,7 +210,7 @@ async def test_create_conversation_with_council_or_preset(api):
     assert with_council["council"]["members"] == COUNCIL["members"]
     assert with_council["council"]["preset_id"] == "builtin:hybrid"
     local = await _new_conversation(api, preset_id="builtin:all-local")
-    assert local["council"]["chairman"] == GPT_OSS and local["council"]["preset_id"] == "builtin:all-local"
+    assert local["council"]["chairman"] == QWEN and local["council"]["preset_id"] == "builtin:all-local"  # resident chair
     assert (await _new_conversation(api))["council"] is None
     assert (await api.post("/api/conversations")).json()["council"] is None
     missing = await api.post("/api/conversations", json={"preset_id": "nope"})
@@ -251,8 +251,8 @@ async def test_models_projection_and_no_token(api, mock):
     ft = next(m for m in body["models"] if m["id"] == FT)
     assert (ft["kind"], ft["price_per_mtok"], ft["lineage"], ft["can_rank"]) == ("custom", None, {"name": "legal-qwen", "version": "v3"}, False)
     assert set(opus) == {"id", "name", "kind", "provider", "node", "available", "unavailable_reason", "load_state",
-                         "can_rank", "can_chair", "context_length", "size_bytes", "price_per_mtok", "price_verified",
-                         "tags", "lineage"}
+                         "residency", "can_rank", "can_chair", "context_length", "size_bytes", "price_per_mtok",
+                         "price_verified", "tags", "lineage"}
 
 
 async def test_health_reports_status_without_the_token(api, mock):
@@ -281,7 +281,7 @@ async def test_plan_is_proxied(api, mock):
     response = await api.post("/api/council/plan", json={"members": [QWEN, GPT_OSS], "chairman": QWEN})
     assert response.status_code == 200 and response.json() == mock.plan
     sent = [json.loads(r.content) for r in mock.requests if r.url.path == "/v1/mese/plan"]
-    assert sent == [{"models": [QWEN, GPT_OSS]}]
+    assert sent == [{"models": [QWEN, GPT_OSS], "chairman": QWEN}]
 
 
 # ── presets ──────────────────────────────────────────────────────────────────
@@ -289,7 +289,8 @@ async def test_plan_is_proxied(api, mock):
 
 async def test_builtin_presets_resolve_from_the_fixture_catalog(api):
     presets = {p["id"]: p for p in (await api.get("/api/presets")).json()["presets"]}
-    assert (presets["builtin:all-local"]["members"], presets["builtin:all-local"]["chairman"]) == ([QWEN, VLLM, GPT_OSS], GPT_OSS)
+    # Resident first; the exclusive gpt-oss:120b is not needed to reach 2 members and the resident QWEN chairs.
+    assert (presets["builtin:all-local"]["members"], presets["builtin:all-local"]["chairman"]) == ([QWEN, VLLM], QWEN)
     assert (presets["builtin:frontier-cloud"]["members"], presets["builtin:frontier-cloud"]["chairman"]) == ([OPUS, SONNET, GPT], OPUS)
     assert (presets["builtin:hybrid"]["members"], presets["builtin:hybrid"]["chairman"]) == ([SONNET, GPT, QWEN, VLLM], OPUS)
     assert all(p["builtin"] and p["unavailable"] == [] and p["created_at"] is None for p in presets.values())

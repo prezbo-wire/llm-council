@@ -1,15 +1,27 @@
 import ModelBadge from '../ModelBadge';
 import { formatModelPrice, unavailableText } from '../../council/format.js';
-import { loadDotFor } from '../../council/models.js';
+import { loadDotFor, residencyHintFor } from '../../council/models.js';
 import './ModelRow.css';
 
 /**
  * One catalog model in the picker: member checkbox, name, badge, price per 1M, load dot,
- * "Stage 1 only" (can_rank=false), unavailable reason and the chair toggle (can_chair only).
+ * "Stage 1 only" (can_rank=false), residency pills (Resident, On demand, Exclusive, Slow, CPU offload),
+ * unavailable reason and the chair toggle (can_chair only). `cpuOffload` is the plan's `cpu_offload`
+ * warning message for this model, if any.
  */
-export default function ModelRow({ model, isMember, isChair, memberLimitReached, adminUrl, onToggleMember, onToggleChair }) {
+export default function ModelRow({
+  model,
+  isMember,
+  isChair,
+  memberLimitReached,
+  adminUrl,
+  cpuOffload = null,
+  onToggleMember,
+  onToggleChair,
+}) {
   const price = formatModelPrice(model);
   const dot = loadDotFor(model);
+  const residency = residencyHintFor(model, { cpuOffload });
   const unavailable = model.available ? null : unavailableText(model.unavailable_reason);
   const checkboxId = `council-member-${model.id}`;
   const memberDisabled = !isMember && memberLimitReached;
@@ -35,6 +47,11 @@ export default function ModelRow({ model, isMember, isChair, memberLimitReached,
             Stage 1 only
           </span>
         )}
+        {residency.map((pill) => (
+          <span key={pill.tone} className={`residency-pill pill-${pill.tone}`} title={pill.title}>
+            {pill.label}
+          </span>
+        ))}
         {unavailable && (
           <span className="model-row-unavailable">
             {unavailable.admin && adminUrl ? (

@@ -124,6 +124,15 @@ class LineageRef(TypedDict):
     version: str
 
 
+class Residency(TypedDict):
+    """The whitelisted part of Mese's ``mese.residency`` (V1Residency, Mese ARCHITECTURE §G.6)."""
+
+    effective: str  # mese.residency.class: 'on_demand' | 'resident' | 'exclusive' ("auto" when configured differs)
+    configured: str  # the class stored on the Mese model row
+    est_load_s: Optional[float]  # 0 when loaded; None when unknown
+    observed_tok_s: Optional[float]  # recent solo decode rate; None until Mese has measured it
+
+
 class CouncilModel(TypedDict):
     """V1Model projected for the picker (GET /api/models)."""
 
@@ -135,6 +144,7 @@ class CouncilModel(TypedDict):
     available: bool
     unavailable_reason: Optional[str]
     load_state: Optional[str]
+    residency: Optional[Residency]  # None for cloud, runtimes Mese does not load, or an older Mese (treated as on_demand)
     can_rank: bool
     can_chair: bool
     context_length: Optional[int]

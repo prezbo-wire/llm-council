@@ -11,14 +11,17 @@ Mese being down surfaces as :class:`backend.mese_client.MeseError` (mapped to 50
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, List, Optional
 
 from .config import LEGACY_DISPLAY_NAMES
-from .schemas import CouncilModel
+from .schemas import CouncilModel, Residency
 
 LOCAL_KINDS = ("local", "custom")
+#: Mese residency classes (Mese ARCHITECTURE §G.6); anything else is treated as "no residency data".
+RESIDENCY_CLASSES = ("on_demand", "resident", "exclusive")
 
 
 class CouncilValidationError(Exception):
@@ -95,6 +98,27 @@ def price_per_mtok(model: Dict[str, Any]) -> Optional[Dict[str, float]]:
     return {"input": prompt, "output": completion}
 
 
+def _non_negative(value: Any) -> Optional[float]:
+    """A finite number ≥ 0 as sent by Mese, else None (``bool`` is not a number here)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
+def project_residency(residency: Any) -> Optional[Residency]:
+    """``mese.residency`` (V1Residency) → ``Residency``. Only ``class`` (as ``effective``), ``configured``,
+    ``est_load_s`` and ``observed_tok_s`` are copied. None when it is absent (cloud, a runtime Mese does not
+    load, or an older Mese, all treated as on_demand) or its class is unknown.
+    """
+    if not isinstance(residency, dict) or residency.get("class") not in RESIDENCY_CLASSES:
+        return None
+    effective = residency["class"]
+    configured = residency.get("configured")
+    return {"effective": effective, "configured": configured if configured in RESIDENCY_CLASSES else effective,
+            "est_load_s": _non_negative(residency.get("est_load_s")),
+            "observed_tok_s": _non_negative(residency.get("observed_tok_s"))}
+
+
 def project_model(model: Dict[str, Any]) -> CouncilModel:
     """``V1Model`` → ``CouncilModel`` (§I.5). No base URL or credential metadata is ever copied."""
     mese = model.get("mese") if isinstance(model.get("mese"), dict) else {}
@@ -111,6 +135,7 @@ def project_model(model: Dict[str, Any]) -> CouncilModel:
         "available": bool(mese.get("available", False)),
         "unavailable_reason": mese.get("unavailable_reason"),
         "load_state": mese.get("load_state"),
+        "residency": project_residency(mese.get("residency")),
         "can_rank": bool(mese.get("can_rank", False)),
         "can_chair": bool(mese.get("can_chair", False)),
         "context_length": model.get("context_length"),

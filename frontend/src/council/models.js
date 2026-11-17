@@ -3,11 +3,19 @@
  * Pure functions, shared by the picker, member cards, Stage tabs and the final panel.
  */
 
+/**
+ * Mese's residency class for a local model (Mese ARCHITECTURE §G.6). `effective` is 'exclusive' also for a
+ * model too big to fit beside the resident set ("exclusive (auto)": `configured` differs).
+ * @typedef {{effective: 'on_demand'|'resident'|'exclusive', configured: 'on_demand'|'resident'|'exclusive',
+ *   est_load_s: number|null, observed_tok_s: number|null}} Residency
+ */
+
 /** @typedef {{id: string, name: string, kind: 'cloud'|'local'|'custom', provider: {id: string, name: string}|null,
  *   node: {id: string, name: string, runtime: string, host_id: string}|null, available: boolean,
- *   unavailable_reason: string|null, load_state: string|null, can_rank: boolean, can_chair: boolean,
- *   context_length: number|null, size_bytes: number|null, price_per_mtok: {input: number, output: number}|null,
- *   price_verified: boolean|null, tags: string[], lineage: {name: string, version: string}|null}} CouncilModel */
+ *   unavailable_reason: string|null, load_state: string|null, residency: Residency|null, can_rank: boolean,
+ *   can_chair: boolean, context_length: number|null, size_bytes: number|null,
+ *   price_per_mtok: {input: number, output: number}|null, price_verified: boolean|null, tags: string[],
+ *   lineage: {name: string, version: string}|null}} CouncilModel */
 
 /**
  * @typedef {{id: string, displayName: string, kind: 'cloud'|'local'|'custom'|null, providerId: string|null,
@@ -177,4 +185,107 @@ export function loadDotFor(model) {
     default:
       return { tone: 'unknown', label: 'Load state unknown' };
   }
+}
+
+/* ── Residency (Mese ARCHITECTURE §G.6, §I.9) ── */
+
+/** Mese's `slow` plan warning threshold: a measured decode rate below this many tokens per second. */
+export const SLOW_TOK_PER_S = 10;
+
+const isSeconds = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+
+/** "~48 s" below 90 s, else "~3 min". */
+export function approxDuration(seconds) {
+  if (seconds < 90) return `~${Math.max(1, Math.round(seconds))} s`;
+  return `~${Math.round(seconds / 60)} min`;
+}
+
+/** "4.4" below 10 tok/s, else a whole number. */
+function tokRate(tokPerSec) {
+  return tokPerSec < 10 ? String(Number(tokPerSec.toFixed(1))) : String(Math.round(tokPerSec));
+}
+
+/**
+ * Residency pills for a picker row: the class pill, then "Slow" when Mese measured under 10 tok/s, then
+ * "CPU offload" when the plan warned about it. Models without residency data (cloud, a runtime Mese does
+ * not load, an older Mese) get no class pill.
+ *
+ * | state                  | label                        | tone           |
+ * |------------------------|------------------------------|----------------|
+ * | resident, loaded       | Resident                     | resident       |
+ * | resident, not loaded   | Resident · reloading         | reloading      |
+ * | on_demand              | On demand · ~N s / · loaded  | on-demand      |
+ * | exclusive (configured) | Exclusive · ~N s / · loaded  | exclusive      |
+ * | exclusive (auto)       | Exclusive (auto) · ~N s      | exclusive-auto |
+ * | observed_tok_s < 10    | Slow · ~N tok/s              | slow           |
+ * | cpu_offload warning    | CPU offload                  | cpu-offload    |
+ *
+ * @param {CouncilModel} model
+ * @param {{cpuOffload?: string|null}} [plan] the message of the plan's `cpu_offload` warning for this model
+ * @returns {{tone: string, label: string, title: string}[]}
+ */
+export function residencyHintFor(model, { cpuOffload = null } = {}) {
+  const pills = [];
+  const residency = model && model.kind !== 'cloud' ? model.residency : null;
+  if (residency) {
+    const host = (model.node && (model.node.host_id || model.node.id)) || 'its host';
+    const loadS = isSeconds(residency.est_load_s) ? residency.est_load_s : null;
+    const tok = isSeconds(residency.observed_tok_s) && residency.observed_tok_s > 0 ? residency.observed_tok_s : null;
+    const loaded = model.load_state === 'loaded' || loadS === 0;
+    const wait = loaded ? ' · loaded' : loadS === null ? '' : ` · ${approxDuration(loadS)}`;
+    if (residency.effective === 'resident' && loaded) {
+      const recent = tok === null ? '' : ` (~${tokRate(tok)} tok/s recently)`;
+      pills.push({ tone: 'resident', label: 'Resident', title: `Always loaded on ${host}${recent}` });
+    } else if (residency.effective === 'resident') {
+      const when = loadS === null ? 'soon' : `in ${approxDuration(loadS)}`;
+      pills.push({ tone: 'reloading', label: 'Resident · reloading', title: `Reloads ${when} (after a large model or a restart)` });
+    } else if (residency.effective === 'exclusive' && residency.configured !== 'exclusive') {
+      pills.push({
+        tone: 'exclusive-auto',
+        label: `Exclusive (auto)${wait}`,
+        title: 'Too big to fit beside the resident models; runs like an exclusive model',
+      });
+    } else if (residency.effective === 'exclusive') {
+      pills.push({ tone: 'exclusive', label: `Exclusive${wait}`, title: 'Unloads resident models while it runs; they reload afterwards' });
+    } else {
+      pills.push({ tone: 'on-demand', label: `On demand${wait}`, title: 'Loads into spare memory on first use' });
+    }
+    if (tok !== null && tok < SLOW_TOK_PER_S) {
+      const minutes = Math.max(1, Math.round(1000 / tok / 60));
+      pills.push({ tone: 'slow', label: `Slow · ~${tokRate(tok)} tok/s`, title: `A 1,000-token answer takes ~${minutes} min` });
+    }
+  }
+  if (cpuOffload) pills.push({ tone: 'cpu-offload', label: 'CPU offload', title: cpuOffload });
+  return pills;
+}
+
+/** The plan's `cpu_offload` warning messages by model id (shown as a "CPU offload" pill on the row). */
+export function cpuOffloadByModel(plan) {
+  const byModel = new Map();
+  for (const warning of plan && Array.isArray(plan.warnings) ? plan.warnings : []) {
+    if (warning && warning.code === 'cpu_offload' && typeof warning.model === 'string' && typeof warning.message === 'string') {
+      byModel.set(warning.model, warning.message);
+    }
+  }
+  return byModel;
+}
+
+/**
+ * The picker's turn line from `plan.turn` (Mese simulates the turn when the plan names the chairman):
+ * "Local: no model loads" or "Local: 1 model load (+~48 s); residents reload ~52 s later".
+ * Null without a turn (an older Mese) and for a council with no local model that loads nothing.
+ * @returns {{tone: 'none'|'loads', text: string}|null}
+ */
+export function planTurnLine(plan) {
+  const turn = plan && typeof plan === 'object' ? plan.turn : null;
+  if (!turn || typeof turn !== 'object' || !Number.isInteger(turn.loads) || turn.loads < 0) return null;
+  if (turn.loads === 0) {
+    const items = Array.isArray(plan.items) ? plan.items : [];
+    const local = items.some((item) => item && (item.kind === 'local' || item.kind === 'custom'));
+    return local ? { tone: 'none', text: 'Local: no model loads' } : null;
+  }
+  const loads = `${turn.loads} model load${turn.loads === 1 ? '' : 's'}`;
+  const loadS = isSeconds(turn.load_s) && turn.load_s > 0 ? ` (+${approxDuration(turn.load_s)})` : '';
+  const restore = isSeconds(turn.restore_s) && turn.restore_s > 0 ? `; residents reload ${approxDuration(turn.restore_s)} later` : '';
+  return { tone: 'loads', text: `Local: ${loads}${loadS}${restore}` };
 }

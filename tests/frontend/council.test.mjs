@@ -7,11 +7,14 @@ import { fileURLToPath } from 'node:url';
 
 import {
   badgeFor,
+  cpuOffloadByModel,
   describeModel,
   indexCatalog,
   loadDotFor,
   matchesFilter,
   matchesSearch,
+  planTurnLine,
+  residencyHintFor,
   shortModelName,
   snapshotHints,
   sortForPicker,
@@ -61,13 +64,19 @@ import { REPLAY_CATALOG } from '../../frontend/src/dev/replayData.js';
 const catalog = REPLAY_CATALOG;
 const index = indexCatalog(catalog);
 const get = (id) => index.get(id);
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SRC = join(HERE, '..', '..', 'frontend', 'src');
+const meseFixture = (name) => JSON.parse(readFileSync(join(HERE, '..', 'fixtures', 'mese', name), 'utf8'));
+// The replay is Spark-only: the fixture's node_down model on the neutral test host "lab" moves to spark-llama.
+const SPARK_LLAMA = { id: 'spark-llama', name: 'DGX Spark · llama.cpp', runtime: 'llamacpp_router', host_id: 'spark' };
+const SPARK_ONLY = { 'lab/glimmer:30b': { id: 'spark-llama/glimmer-30b', node: SPARK_LLAMA } };
 
 describe('models', () => {
-  test('the dev replay catalog is the CouncilModel projection of WP0 v1_models.json', () => {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const v1 = JSON.parse(readFileSync(join(here, '..', 'fixtures', 'mese', 'v1_models.json'), 'utf8'));
+  test('the dev replay catalog is the CouncilModel projection of WP0 v1_models.json, Spark-only', () => {
+    const v1 = meseFixture('v1_models.json');
     const projected = v1.data.map((m) => {
       const x = m.mese;
+      const r = x.residency;
       return {
         id: m.id,
         name: x.display_name || m.name,
@@ -77,6 +86,7 @@ describe('models', () => {
         available: x.available,
         unavailable_reason: x.unavailable_reason,
         load_state: x.load_state,
+        residency: r ? { effective: r.class, configured: r.configured, est_load_s: r.est_load_s, observed_tok_s: r.observed_tok_s } : null,
         can_rank: x.can_rank,
         can_chair: x.can_chair,
         context_length: m.context_length,
@@ -87,9 +97,11 @@ describe('models', () => {
         price_verified: x.price_verified,
         tags: x.tags,
         lineage: x.lineage ? { name: x.lineage.name, version: x.lineage.version } : null,
+        ...SPARK_ONLY[m.id],
       };
     });
     assert.deepEqual(REPLAY_CATALOG, projected);
+    assert.ok(REPLAY_CATALOG.every((m) => !m.node || m.node.host_id === 'spark'));
   });
 
   test('badges: Cloud · provider, Local · node, FT · version, Legacy for ids missing from the catalog', () => {
@@ -105,8 +117,8 @@ describe('models', () => {
 
   test('no Legacy badge while the catalog is not loaded; hints describe ids the catalog lacks', () => {
     assert.equal(badgeFor(describeModel('openai/gpt-5.1', { index: null })), null);
-    const hinted = describeModel('gone/model', { index, hint: { displayName: 'Gone', kind: 'local', nodeId: 'mini2' } });
-    assert.deepEqual([hinted.legacy, hinted.displayName, badgeFor(hinted).label], [false, 'Gone', 'Local · mini2']);
+    const hinted = describeModel('gone/model', { index, hint: { displayName: 'Gone', kind: 'local', nodeId: 'lab' } });
+    assert.deepEqual([hinted.legacy, hinted.displayName, badgeFor(hinted).label], [false, 'Gone', 'Local · lab']);
   });
 
   test('snapshotHints indexes council_snapshot members and chairman', () => {
@@ -143,12 +155,65 @@ describe('models', () => {
     assert.equal(loadDotFor(get('anthropic/claude-opus-5-5')), null);
     assert.equal(loadDotFor(get('spark/qwen3.8:27b')).tone, 'loaded');
     assert.equal(loadDotFor(get('spark/gpt-oss:120b')).tone, 'unloaded');
-    assert.equal(loadDotFor(get('mini1/glimmer:30b')).tone, 'unknown');
+    assert.equal(loadDotFor(get('spark-llama/glimmer-30b')).tone, 'unknown');
   });
 
   test('shortModelName', () => {
     assert.equal(shortModelName('spark-vllm/Qwen/Qwen3.8-27B'), 'Qwen/Qwen3.8-27B');
     assert.equal(shortModelName('plain'), 'plain');
+  });
+});
+
+describe('residency', () => {
+  const res = (effective, estLoadS, { configured = effective, tok = null } = {}) => ({ effective, configured, est_load_s: estLoadS, observed_tok_s: tok });
+  const model = (residency, load = 'unloaded') => ({ ...get('spark/qwen3.8:27b'), residency, load_state: load });
+  const pills = (m, opts) => residencyHintFor(m, opts).map((p) => [p.tone, p.label]);
+
+  test('residencyHintFor: the picker pill table', () => {
+    assert.deepEqual(residencyHintFor(get('spark/qwen3.8:27b')),
+      [{ tone: 'resident', label: 'Resident', title: 'Always loaded on spark (~39 tok/s recently)' }]);
+    const reloading = residencyHintFor(model(res('resident', 21.4)));
+    assert.deepEqual([reloading[0].label, reloading[0].title], ['Resident · reloading', 'Reloads in ~21 s (after a large model or a restart)']);
+    assert.deepEqual(pills(get('ft/legal-qwen-v3')), [['on-demand', 'On demand · ~17 s']]);
+    assert.deepEqual(pills(model(res('on_demand', 0), 'loaded')), [['on-demand', 'On demand · loaded']]);
+    assert.deepEqual(pills(model(res('on_demand', null))), [['on-demand', 'On demand']]);
+    assert.deepEqual(pills(get('spark/gpt-oss:120b')), [['exclusive', 'Exclusive · ~52 s']]);
+    assert.deepEqual(pills(model(res('exclusive', 48.3, { configured: 'on_demand' }))), [['exclusive-auto', 'Exclusive (auto) · ~48 s']]);
+    assert.deepEqual(pills(model(res('exclusive', 192, { configured: 'resident' }))), [['exclusive-auto', 'Exclusive (auto) · ~3 min']]);
+    const slow = residencyHintFor(model(res('on_demand', 33, { tok: 4.4 })));
+    assert.deepEqual(slow.map((p) => p.label), ['On demand · ~33 s', 'Slow · ~4.4 tok/s']);
+    assert.equal(slow[1].title, 'A 1,000-token answer takes ~4 min');
+    assert.deepEqual(pills(model(res('resident', 0, { tok: 10 }), 'loaded')), [['resident', 'Resident']], '10 tok/s is not slow');
+    const offloaded = residencyHintFor(get('spark/qwen3.8:27b'), { cpuOffload: 'Qwen runs partly on the CPU' });
+    assert.deepEqual(offloaded.slice(1), [{ tone: 'cpu-offload', label: 'CPU offload', title: 'Qwen runs partly on the CPU' }]);
+    assert.deepEqual(residencyHintFor(get('anthropic/claude-opus-5-5')), []);
+    assert.deepEqual(residencyHintFor(get('spark-vllm/Qwen/Qwen3.8-27B')), [], 'no residency data: no class pill');
+  });
+
+  test('turn line from plan.turn', () => {
+    const exclusive = meseFixture('v1_plan_exclusive.json');
+    assert.deepEqual(planTurnLine(exclusive), { tone: 'loads', text: 'Local: 1 model load (+~48 s); residents reload ~52 s later' });
+    assert.equal(planTurnLine(meseFixture('v1_plan.json')), null, 'no chairman sent, or an older Mese');
+    const idle = { loads: 0, load_s: 0, restore_s: 0, stages: [] };
+    assert.deepEqual(planTurnLine({ ...exclusive, turn: idle }), { tone: 'none', text: 'Local: no model loads' });
+    assert.equal(planTurnLine({ items: [{ kind: 'cloud' }], turn: idle }), null, 'an all-cloud council has no turn line');
+    assert.equal(planTurnLine({ items: [], turn: { ...idle, loads: 4, load_s: 192 } }).text, 'Local: 4 model loads (+~3 min)');
+    assert.equal(planTurnLine(null), null);
+  });
+
+  test('residency warnings keep their codes, render as styled plan-<code> lines; every pill tone is styled', () => {
+    const exclusive = meseFixture('v1_plan_exclusive.json');
+    const plan = { ...exclusive, warnings: [...exclusive.warnings,
+      { code: 'slow', model: 'spark/nemotron:latest', host_id: 'spark', message: 'nemotron:latest decodes at ~4.4 tok/s' },
+      { code: 'cpu_offload', model: 'spark/qwen3.8:27b', host_id: 'spark', message: 'Qwen runs partly on the CPU' }] };
+    assert.deepEqual(planWarnings(plan).map((w) => w.code), ['exclusive', 'waves', 'slow', 'cpu_offload']);
+    assert.deepEqual([...cpuOffloadByModel(plan)], [['spark/qwen3.8:27b', 'Qwen runs partly on the CPU']]);
+    const css = (name) => readFileSync(join(SRC, 'components', 'CouncilPicker', name), 'utf8');
+    const [picker, row] = [css('CouncilPicker.css'), css('ModelRow.css')];
+    for (const code of ['exclusive', 'slow', 'cpu_offload']) assert.ok(picker.includes(`.picker-warning.plan-${code} {`), code);
+    for (const tone of ['none', 'loads']) assert.ok(picker.includes(`.picker-turn.turn-${tone} {`), tone);
+    const tones = ['resident', 'reloading', 'on-demand', 'exclusive', 'exclusive-auto', 'slow', 'cpu-offload'];
+    for (const tone of tones) assert.ok(row.includes(`.residency-pill.pill-${tone} {`), tone);
   });
 });
 

@@ -10,7 +10,15 @@ import {
   toggleMember,
   withPresetMatch,
 } from '../../council/draft.js';
-import { describeModel, badgeFor, matchesFilter, matchesSearch, sortForPicker } from '../../council/models.js';
+import {
+  badgeFor,
+  cpuOffloadByModel,
+  describeModel,
+  matchesFilter,
+  matchesSearch,
+  planTurnLine,
+  sortForPicker,
+} from '../../council/models.js';
 import { usePlanWarnings } from '../../hooks/usePlanWarnings.js';
 import './CouncilPicker.css';
 
@@ -53,6 +61,7 @@ function CatalogStatus({ catalog, onRetry }) {
 /**
  * Per-conversation council picker (§I.9). Collapsed: member chips, chair, "Change", and a note that
  * changes apply to the next question. Expanded: presets, All/Local/Cloud filter, search and rows.
+ * Both show the plan's warnings and its turn line ("Local: no model loads", from `plan.turn`).
  */
 export default function CouncilPicker({
   catalog,
@@ -74,12 +83,12 @@ export default function CouncilPicker({
   const session = useRef({ openedWith: null, edited: false });
   const { adminUrl } = useCatalog();
   const nameOf = useNameOf();
-  const plan = usePlanWarnings(
-    onPlan,
-    draft,
-    Boolean(validation.valid && catalog.status === 'ready' && !disabled),
-    validation.unavailable,
-  );
+  const planEnabled = Boolean(validation.valid && catalog.status === 'ready' && !disabled);
+  // The warning lines, plus the whole response for the current draft: the turn line and the "CPU offload" pills.
+  const plan = usePlanWarnings(onPlan || null, draft, planEnabled, validation.unavailable);
+  const currentPlan = plan.error ? null : plan.plan;
+  const turnLine = planTurnLine(currentPlan);
+  const offloaded = cpuOffloadByModel(currentPlan);
 
   const members = draft ? draft.members : [];
   const chairman = draft ? draft.chairman : null;
@@ -113,6 +122,7 @@ export default function CouncilPicker({
       ) : (
         <span className="picker-note">Changes apply to the next question.</span>
       )}
+      {turnLine && <span className={`picker-turn turn-${turnLine.tone}`}>{turnLine.text}</span>}
       {validation.unavailable.length > 0 && (
         <span className="picker-warning">
           Unavailable now: {validation.unavailable.map(nameOf).join(', ')} (fails fast at run time)
@@ -213,6 +223,7 @@ export default function CouncilPicker({
               isChair={chairman === model.id}
               memberLimitReached={memberLimitReached}
               adminUrl={adminUrl}
+              cpuOffload={offloaded.get(model.id) || null}
               onToggleMember={(id) => update(toggleMember(draft, id))}
               onToggleChair={(id) => update(toggleChairman(draft, id))}
             />

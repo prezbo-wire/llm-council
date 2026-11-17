@@ -22,18 +22,27 @@ const QUESTION = 'Should I use SQLite or PostgreSQL for a single-user app?';
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const byId = new Map(REPLAY_CATALOG.map((m) => [m.id, m]));
 
-/* ── Built-in preset selectors (dev mirror of §I.5) ── */
+/* ── Built-in preset selectors (dev mirror of §I.5 and backend/presets.py) ── */
+/** Effective residency class; no residency data counts as on_demand. */
+const residencyOf = (m) => (m && m.residency ? m.residency.effective : 'on_demand');
+const bySize = (a, b) => (b.size_bytes ?? 0) - (a.size_bytes ?? 0);
+const byContextThenSize = (a, b) => (b.context_length ?? 0) - (a.context_length ?? 0) || bySize(a, b);
+
+/** Resident first, then loaded, then largest; exclusive models only to reach 2 members; the resident chair first. */
 function allLocalPick(catalog) {
   const local = catalog.filter((m) => m.available && (m.kind === 'local' || m.kind === 'custom'));
-  const members = local
-    .filter((m) => m.can_rank)
-    .sort((a, b) => (b.load_state === 'loaded') - (a.load_state === 'loaded') || (b.size_bytes ?? 0) - (a.size_bytes ?? 0))
-    .slice(0, 4)
-    .map((m) => m.id);
-  const chair = local
-    .filter((m) => m.can_chair)
-    .sort((a, b) => (b.context_length ?? 0) - (a.context_length ?? 0) || (b.size_bytes ?? 0) - (a.size_bytes ?? 0))[0];
-  return { members, chairman: chair ? chair.id : null };
+  const rankers = local.filter((m) => m.can_rank);
+  const picked = rankers
+    .filter((m) => residencyOf(m) !== 'exclusive')
+    .sort((a, b) => (residencyOf(b) === 'resident') - (residencyOf(a) === 'resident')
+      || (b.load_state === 'loaded') - (a.load_state === 'loaded') || bySize(a, b))
+    .slice(0, 4);
+  const exclusive = rankers.filter((m) => residencyOf(m) === 'exclusive').sort(bySize);
+  while (picked.length < 2 && exclusive.length > 0) picked.push(exclusive.shift());
+  const chairs = local.filter((m) => m.can_chair);
+  const residentChairs = chairs.filter((m) => residencyOf(m) === 'resident');
+  const chair = [...(residentChairs.length > 0 ? residentChairs : chairs)].sort(byContextThenSize)[0];
+  return { members: picked.map((m) => m.id), chairman: chair ? chair.id : null };
 }
 
 function frontierPick(catalog) {
@@ -51,13 +60,29 @@ function builtinPresets(catalog) {
     id, name, description, members, chairman: chair, builtin: true, unavailable: [], created_at: null, updated_at: null,
   });
   return [
-    preset('builtin:all-local', 'All local', 'Up to 4 local models, loaded first', local.members, local.chairman),
+    preset('builtin:all-local', 'All local', 'Up to 4 local models, resident ones first', local.members, local.chairman),
     preset('builtin:frontier-cloud', 'Frontier cloud', 'Frontier cloud models', frontier.slice(0, 5).map((m) => m.id), chairman),
     preset('builtin:hybrid', 'Hybrid', '2 cheapest frontier cloud + 2 local', [...cheapest, ...local.members.slice(0, 2)], chairman),
   ];
 }
 
-/* ── Plan (dev approximation of /v1/mese/plan warnings) ── */
+/* ── Plan (dev approximation of /v1/mese/plan warnings and turn) ── */
+/** A rough turn: every cold local model loads once; an exclusive one sends the loaded residents back afterwards. */
+function replayTurn(ids, chairman) {
+  const local = ids.map((id) => byId.get(id)).filter((m) => m && m.available && m.residency);
+  if (!chairman || local.length === 0) return null;
+  const cold = local.filter((m) => (m.residency.est_load_s ?? 0) > 0);
+  const exclusive = cold.some((m) => m.residency.effective === 'exclusive');
+  const residents = REPLAY_CATALOG.filter((m) => m.available && residencyOf(m) === 'resident' && m.residency.est_load_s === 0);
+  const seconds = (list) => Math.round(list.reduce((n, m) => n + (m.residency.est_load_s ?? 0), 0) * 10) / 10;
+  return {
+    loads: cold.length,
+    load_s: seconds(cold),
+    restore_s: exclusive ? Math.round(residents.length * 20 * 10) / 10 : 0,
+    stages: [],
+  };
+}
+
 function replayPlan({ members, chairman }) {
   const ids = [...new Set([...members, chairman])];
   const warnings = [];
@@ -66,6 +91,9 @@ function replayPlan({ members, chairman }) {
     if (!m) continue;
     if (!m.available) warnings.push({ code: 'unavailable', model: id, message: `${m.name} is unavailable (${m.unavailable_reason})` });
     if (!m.can_rank && members.includes(id)) warnings.push({ code: 'cannot_rank', model: id, message: `${id} is Stage 1 only (can_rank=false)` });
+    if (m.available && residencyOf(m) === 'exclusive' && (m.residency.est_load_s ?? 0) > 0) {
+      warnings.push({ code: 'exclusive', model: id, message: `${m.name} is exclusive: it unloads resident models while it runs` });
+    }
   }
   const cold = ids.map((id) => byId.get(id)).filter((m) => m && m.available && m.node && m.load_state !== 'loaded');
   const hosts = new Set(cold.map((m) => m.node.host_id));
@@ -73,7 +101,13 @@ function replayPlan({ members, chairman }) {
     const onHost = cold.filter((m) => m.node.host_id === host);
     if (onHost.length > 1) warnings.push({ code: 'waves', host_id: host, message: `${host}: runs in 2 waves, +~${onHost.length * 20} s` });
   }
-  return { feasible: true, items: [], hosts: [], warnings };
+  const items = ids.map((id) => byId.get(id)).filter(Boolean).map((m) => ({
+    model: m.id, kind: m.kind,
+    state: !m.available ? 'unavailable' : m.kind === 'cloud' ? 'ready' : m.load_state === 'loaded' ? 'loaded' : 'will_load',
+    host_id: m.node ? m.node.host_id : null, est_bytes: null, est_load_s: m.residency ? m.residency.est_load_s : null,
+    reason: m.available ? null : m.unavailable_reason, residency: m.residency ? m.residency.effective : null, displaces: [],
+  }));
+  return { feasible: true, items, hosts: [], warnings, turn: replayTurn(ids, chairman) };
 }
 
 function eventDelay(event, base) {

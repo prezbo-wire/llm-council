@@ -9,7 +9,8 @@ const DEBOUNCE_MS = 400;
  * draft, so stale warnings never flash after an edit.
  * @param {(council: {members: string[], chairman: string}, opts: {signal: AbortSignal}) => Promise<object>} planFn
  * @param {string[]} [alreadyFlagged] models the picker already flags as unavailable
- * @returns {{warnings: {code: string, message: string}[], pending: boolean, error: Error|null}}
+ * @returns {{warnings: {code: string, message: string}[], plan: object|null, pending: boolean, error: Error|null}}
+ *   `plan` is the whole response for the current draft (its `turn` line, `cpu_offload` pills), else null.
  */
 export function usePlanWarnings(planFn, draft, enabled, alreadyFlagged = []) {
   const key = enabled && draft ? planKey(draft) : '';
@@ -35,7 +36,7 @@ export function usePlanWarnings(planFn, draft, enabled, alreadyFlagged = []) {
     };
   }, [key, planFn]);
 
-  if (!key) return { warnings: [], pending: false, error: null };
-  if (result.key !== key) return { warnings: [], pending: true, error: null };
-  return { warnings: planWarnings(result.plan, alreadyFlagged), pending: false, error: result.error };
+  if (!key) return { warnings: [], plan: null, pending: false, error: null };
+  if (result.key !== key) return { warnings: [], plan: null, pending: true, error: null };
+  return { warnings: planWarnings(result.plan, alreadyFlagged), plan: result.plan, pending: false, error: result.error };
 }

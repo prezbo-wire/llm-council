@@ -291,9 +291,22 @@ class MeseClient:
             self._models = (now, models)
             return models
 
-    async def plan(self, models: List[str]) -> Dict[str, Any]:
-        """``POST /v1/mese/plan`` → V1PlanResponse. Raises :class:`MeseError`."""
-        payload = await self._request_json("POST", "/v1/mese/plan", {"models": models})
+    async def plan(self, models: List[str], chairman: Optional[str] = None) -> Dict[str, Any]:
+        """``POST /v1/mese/plan`` → V1PlanResponse. Raises :class:`MeseError`.
+
+        With ``chairman`` Mese also simulates the whole turn (``turn``: model loads per stage, load and
+        restore seconds); without it ``turn`` is null. An older Mese rejects the unknown ``chairman`` field
+        (400 ``invalid_request``); the members are then planned without it, so the picker keeps its warnings.
+        """
+        body: Dict[str, Any] = {"models": models}
+        if chairman:
+            body["chairman"] = chairman
+        try:
+            payload = await self._request_json("POST", "/v1/mese/plan", body)
+        except MeseError as exc:
+            if "chairman" not in body or (exc.status, exc.code) != (400, "invalid_request"):
+                raise
+            payload = await self._request_json("POST", "/v1/mese/plan", {"models": models})
         if not isinstance(payload, dict):
             raise MeseError("upstream_error", "Mese returned an unexpected plan payload")
         return payload
