@@ -301,7 +301,8 @@ async def test_user_preset_crud(api):
     preset = created.json()
     assert (preset["id"], preset["name"], preset["builtin"], preset["unavailable"]) == ("my-team", "My team", False, [GROK])
     listed = (await api.get("/api/presets")).json()["presets"]
-    assert [p["id"] for p in listed] == ["builtin:all-local", "builtin:frontier-cloud", "builtin:hybrid", "my-team"]
+    assert [p["id"] for p in listed] == ["builtin:last-used", "builtin:all-local", "builtin:frontier-cloud",
+                                         "builtin:hybrid", "my-team"]
     updated = (await api.put("/api/presets/my-team", json={"name": "Renamed", "members": [QWEN], "chairman": QWEN})).json()
     assert updated["name"] == "Renamed" and updated["created_at"] == preset["created_at"]
     stored = json.loads(Path(api.app.state.ctx.settings.presets_path).read_text())
@@ -318,7 +319,7 @@ async def test_user_preset_validation(api):
     assert (await api.put("/api/presets/team", json={"name": "  ", "members": [OPUS], "chairman": OPUS})).status_code == 422
 
 
-@pytest.mark.parametrize("preset_id", ["builtin:hybrid", "builtin:all-local", "builtin:anything"])
+@pytest.mark.parametrize("preset_id", ["builtin:hybrid", "builtin:all-local", "builtin:last-used", "builtin:anything"])
 async def test_builtin_presets_are_immutable(api, preset_id):
     put = await api.put(f"/api/presets/{preset_id}", json={"name": "x", "members": [OPUS], "chairman": OPUS})
     assert put.status_code == 409 and put.json()["detail"]["code"] == "preset_immutable"

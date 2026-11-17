@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from .app_state import (conversation_not_found, get_ctx, http_error, load_catalog, mese_http_error,
-                        validate_council)
+                        stored_preset_id, validate_council)
 from .config import safe_url
 from .mese_client import MeseError
 from .presets import PresetNotFound, list_presets, user_preset_view
@@ -73,10 +73,10 @@ async def council_plan(council: CouncilConfig, request: Request) -> Dict[str, An
 
 @router.get("/api/presets")
 async def get_presets(request: Request) -> Dict[str, Any]:
-    """Built-ins resolved against the current catalog, then user presets."""
+    """The "Last used" council (``builtin:last-used``), the built-ins resolved now, then user presets."""
     ctx = get_ctx(request)
     catalog = await load_catalog(ctx)
-    return {"presets": list_presets(ctx.presets, catalog)}
+    return {"presets": list_presets(ctx.presets, catalog, ctx.last_used.get())}
 
 
 def _reject_builtin(preset_id: str) -> None:
@@ -117,11 +117,12 @@ async def delete_preset(preset_id: str, request: Request) -> Response:
 @router.put("/api/conversations/{conversation_id}/council")
 async def put_conversation_council(conversation_id: str, body: ConversationCouncilPut,
                                    request: Request) -> Dict[str, Any]:
-    """Saves the council for the conversation's *next* message."""
+    """Saves the council for the conversation's *next* message (``builtin:last-used`` is never stored)."""
     ctx = get_ctx(request)
     if ctx.store.get(conversation_id) is None:
         raise conversation_not_found()
     catalog = await load_catalog(ctx)
     council = validate_council(list(body.members), body.chairman, catalog)
-    saved = ctx.store.set_council(conversation_id, council["members"], council["chairman"], body.preset_id)
+    saved = ctx.store.set_council(conversation_id, council["members"], council["chairman"],
+                                  stored_preset_id(ctx, body.preset_id, council))
     return {"council": saved}

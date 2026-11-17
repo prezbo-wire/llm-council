@@ -75,7 +75,7 @@ Bodies are snake_case. Pydantic models live in `backend/schemas.py` (WP0).
 | `GET /api/models` | `?refresh=1` (optional) bypasses the backend's 10 s catalog cache; the frontend sends it when Mese comes back or its health signature changes | `{"mese": {"ok": true, "admin_url": "http://127.0.0.1:8791/admin/"}, "models": [CouncilModel]}`; 503 if Mese is down |
 | `GET /api/mese/health` | – | `{"ok", "url", "admin_url", "token_set", "latency_ms", "version", "locked", "nodes_up", "nodes_total", "providers_configured", "breakers_open", "error"}`. Never contains the token. |
 | `POST /api/council/plan` | `CouncilConfig` | `V1PlanResponse` (proxied) |
-| `GET /api/presets` | – | `{"presets": [Preset]}`. Built-ins are resolved at request time. |
+| `GET /api/presets` | – | `{"presets": [Preset]}`: "Last used" (`builtin:last-used`) first, then the built-ins (resolved at request time), then user presets. |
 | `PUT /api/presets/{id}` | `{"name", "members", "chairman"}` (`id` matches `^[a-z0-9-]{1,40}$`) | `Preset`; 409 for `builtin:*` |
 | `DELETE /api/presets/{id}` | – | 204; 409 for `builtin:*` |
 | `GET /api/conversations` | – | unchanged list metadata |
@@ -103,12 +103,14 @@ interface CouncilModel {
   lineage: { name: string; version: string } | null;
 }
 interface Preset {
-  id: string;                 // 'builtin:all-local' | 'builtin:frontier-cloud' | 'builtin:hybrid' | user slug
+  id: string;                 // 'builtin:last-used' | 'builtin:all-local' | 'builtin:frontier-cloud' | 'builtin:hybrid' | user slug
   name: string; description: string | null;
   members: string[]; chairman: string | null;   // null when a built-in can't resolve (e.g. no local models)
   builtin: boolean;
   unavailable: string[];      // members/chairman currently unavailable
-  created_at: string | null; updated_at: string | null;
+  created_at: string | null; updated_at: string | null;   // Last used: updated_at = when it was sent
+  source_preset_id?: string | null;   // Last used only: the preset its council came from
+  conversation_id?: string | null;    // Last used only: the conversation it was sent in
 }
 interface ConversationCouncil { members: string[]; chairman: string; preset_id: string | null; updated_at: string }
 ```
@@ -122,6 +124,13 @@ interface ConversationCouncil { members: string[]; chairman: string; preset_id: 
 | `builtin:all-local` | Up to 4 available `local`/`custom` models with `can_rank`, loaded ones first, then by `size_bytes` descending. | The available local `can_chair` model with the largest `context_length`, ties broken by largest size. |
 | `builtin:frontier-cloud` | Available cloud models tagged `frontier`, at most 5. | The model tagged `default_chair`, else the first frontier model with `can_chair`. |
 | `builtin:hybrid` | The 2 cheapest available `frontier` cloud models, plus the 2 local models chosen by the all-local rule. | As frontier-cloud. |
+
+**Last used** (`builtin:last-used`; an llm-council addition that Mese §I.5 does not describe yet):
+- It is the validated, canonical council of the most recent message a send route accepted, in any conversation. Runs that were later cancelled or failed count; sends rejected with 422/503 and a `PUT …/council` without a send do not. A failing write only logs a warning.
+- Stored in `<COUNCIL_DATA_DIR>/last_council.json` as `{"version": 1, "council": {members, chairman, preset_id, conversation_id, used_at}}`, written atomically. It replaces the frontend's former per-browser localStorage copy, so every UI (Mac, phone, Spark) sees the same value.
+- It is resolved on every request: aliases become catalog ids; ids that left the catalog are dropped and listed in `unavailable` together with the kept ids that are unavailable now; `chairman` is null when it is gone or can no longer chair. Before any send it has no members.
+- It is immutable (409 on PUT/DELETE) and is never stored as a conversation's `preset_id`: `POST /api/conversations {"preset_id": "builtin:last-used"}` and `PUT …/council` store its `source_preset_id` while the council still equals the record, else null.
+- The picker starts a conversation without a council from it (when it has members and a chairman), else from `builtin:hybrid`.
 
 ## I.6 SSE events to the frontend (`/message/stream/v2`)
 

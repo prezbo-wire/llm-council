@@ -1,16 +1,21 @@
-"""Built-in preset selectors and catalog projection/validation (§I.5) on hand-made catalogs."""
+"""Built-in preset selectors, the Last used council and catalog projection/validation (§I.5) on hand-made catalogs."""
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any, Dict, List, Optional
 
 import pytest
 
 from backend.catalog import CatalogIndex, CouncilValidationError, normalize_council, project_model, usd_per_mtok
-from backend.presets import resolve_builtin
+from backend.presets import (LastUsedStore, PresetStore, list_presets, resolve_builtin, resolve_last_used,
+                             resolve_preset)
+from backend.schemas import BUILTIN_PRESET_IDS
 from conftest import load_fixture_json
+from test_support import GROK, OPUS, QWEN
 
 BASE = load_fixture_json("v1_models.json")["data"]
+USED_AT = "2026-11-17T12:00:00Z"
 
 
 def _model(model_id: str, kind: str, *, available: bool = True, tags: Optional[List[str]] = None, can_rank: bool = True,
@@ -95,3 +100,77 @@ def test_normalize_council_resolves_aliases_and_reports_unknowns():
 def test_unknown_ids_get_a_legacy_safe_fallback():
     info = CatalogIndex(BASE).info("openai/gpt-5.1")
     assert (info.in_catalog, info.display_name, info.kind, info.is_local) == (False, "GPT-5.1", "cloud", False)
+
+
+# ── Last used ────────────────────────────────────────────────────────────────
+
+
+def _record(members: List[str], chairman: str, preset_id: Optional[str] = "my-team") -> Dict[str, Any]:
+    return {"members": members, "chairman": chairman, "preset_id": preset_id, "conversation_id": "c1", "used_at": USED_AT}
+
+
+def test_last_used_store_round_trip(tmp_path):
+    store = LastUsedStore(tmp_path / "data" / "last_council.json")
+    assert store.get() is None
+    store.record([OPUS, QWEN], OPUS, "my-team", "c1")
+    stored = json.loads(store.path.read_text())
+    assert stored["version"] == 1 and set(stored) == {"version", "council"}
+    record = store.get()
+    assert record == stored["council"] and record["used_at"].endswith("Z")
+    assert {k: v for k, v in record.items() if k != "used_at"} == {"members": [OPUS, QWEN], "chairman": OPUS,
+                                                                    "preset_id": "my-team", "conversation_id": "c1"}
+    assert [p.name for p in store.path.parent.iterdir()] == ["last_council.json"]  # no temp file left behind
+
+
+_GOOD = _record([OPUS, QWEN], OPUS)
+
+
+@pytest.mark.parametrize("content", [
+    "{not json",
+    json.dumps({"version": 1, "council": {**_GOOD, "members": ["Bad Id"]}}),
+    json.dumps({"version": 1, "council": {**_GOOD, "members": [f"p/m{i}" for i in range(9)]}}),
+    json.dumps({"version": 1, "council": {**_GOOD, "preset_id": "builtin:last-used"}}),
+    json.dumps({"version": 1, "council": {k: v for k, v in _GOOD.items() if k != "chairman"}}),
+], ids=["not-json", "bad-id", "nine-members", "self-pointer", "no-chairman"])
+def test_last_used_store_ignores_unreadable_or_invalid_files(tmp_path, content):
+    path = tmp_path / "last_council.json"
+    path.write_text(json.dumps({"version": 1, "council": _GOOD}))
+    assert LastUsedStore(path).get() == _GOOD  # the valid record reads back
+    path.write_text(content)
+    assert LastUsedStore(path).get() is None
+
+
+def test_last_used_is_empty_before_any_send():
+    assert resolve_last_used(None, CatalogIndex(BASE)) == {
+        "id": "builtin:last-used", "name": "Last used", "description": "The council of your most recent question.",
+        "members": [], "chairman": None, "builtin": True, "unavailable": [], "created_at": None, "updated_at": None,
+        "source_preset_id": None, "conversation_id": None}
+
+
+def test_last_used_canonicalizes_aliases_and_keeps_unavailable_models():
+    record = _record(["anthropic/claude-opus-5.5", OPUS, GROK, QWEN], "anthropic/claude-opus-5.5")
+    preset = resolve_last_used(record, CatalogIndex(BASE))
+    assert (preset["members"], preset["chairman"], preset["unavailable"]) == ([OPUS, GROK, QWEN], OPUS, [GROK])
+    assert (preset["updated_at"], preset["source_preset_id"], preset["conversation_id"]) == (USED_AT, "my-team", "c1")
+
+
+def test_last_used_drops_models_that_left_the_catalog():
+    catalog = CatalogIndex([_model("c/chair", "cloud"), _model("n/kept", "local"),
+                            _model("c/no-chair", "cloud", can_chair=False)])
+    gone = resolve_last_used(_record(["n/kept", "n/gone"], "c/gone"), catalog)
+    assert (gone["members"], gone["chairman"], gone["unavailable"]) == (["n/kept"], None, ["n/gone", "c/gone"])
+    all_gone = resolve_last_used(_record(["n/gone"], "c/chair"), catalog)
+    assert (all_gone["members"], all_gone["chairman"], all_gone["unavailable"]) == ([], None, ["n/gone"])
+    lost_chair = resolve_last_used(_record(["n/kept"], "c/no-chair"), catalog)
+    assert (lost_chair["members"], lost_chair["chairman"], lost_chair["unavailable"]) == (["n/kept"], None, [])
+
+
+def test_list_presets_puts_last_used_first(tmp_path):
+    store = PresetStore(tmp_path / "presets.json")
+    store.put("my-team", "My team", [OPUS], OPUS)
+    catalog = CatalogIndex(BASE)
+    listed = list_presets(store, catalog, _record([QWEN], OPUS))
+    assert [p["id"] for p in listed] == ["builtin:last-used", *BUILTIN_PRESET_IDS, "my-team"]
+    assert (listed[0]["members"], listed[0]["chairman"]) == ([QWEN], OPUS)
+    assert list_presets(store, catalog)[0]["members"] == []
+    assert resolve_preset("builtin:last-used", store, catalog, _record([QWEN], OPUS))["members"] == [QWEN]

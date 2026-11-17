@@ -160,9 +160,10 @@ export default function CouncilPicker({
     >
       <PresetBar
         presets={presets}
+        draft={draft}
         activePresetId={draft ? draft.presetId : null}
         canSave={validation.valid}
-        onApply={(preset) => edit(draftFromPreset(preset))}
+        onApply={(preset) => edit(draftFromPreset(preset, presetItems))}
         onSave={(name) => {
           session.current.edited = true; // saving tags the selection with the new preset id
           return onSavePreset(name, draft);

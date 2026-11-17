@@ -17,23 +17,33 @@ Built-in                   Members                                              
 ``builtin:hybrid``         the 2 cheapest available frontier cloud models plus   as frontier-cloud
                            the first 2 of the all-local selection
 =========================  ====================================================  ==========================
+
+``builtin:last-used`` ("Last used", listed first) is the council of the most recent message a send route
+accepted, kept in ``<data_dir>/last_council.json`` by :class:`LastUsedStore`. It is a moving pointer, so it
+is never stored as a conversation's ``preset_id`` (:func:`backend.app_state.stored_preset_id`).
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .catalog import LOCAL_KINDS, CatalogIndex
-from .schemas import BUILTIN_PRESET_IDS, CouncilModel, Preset, is_model_id, is_user_preset_id
+from .schemas import (BUILTIN_PRESET_IDS, MAX_MEMBERS, PRESET_REF_PATTERN, CouncilModel, Preset, is_model_id,
+                      is_user_preset_id)
 from .storage import atomic_write_json, utc_now_iso
 
 log = logging.getLogger(__name__)
 
 PRESETS_FILE_VERSION = 1
+LAST_USED_FILE_VERSION = 1
+#: Not one of ``BUILTIN_PRESET_IDS`` (those are catalog selectors); still immutable (409 on PUT/DELETE).
+LAST_USED_PRESET_ID = "builtin:last-used"
+_PRESET_REF_RE = re.compile(PRESET_REF_PATTERN)
 ALL_LOCAL_MAX = 4
 FRONTIER_MAX = 5
 HYBRID_CLOUD = 2
@@ -49,6 +59,13 @@ assert tuple(_BUILTIN_META) == BUILTIN_PRESET_IDS
 
 class PresetNotFound(KeyError):
     """No user preset with that id."""
+
+
+class LastUsedPreset(Preset, total=False):
+    """The ``builtin:last-used`` entry: a ``Preset`` plus where its council came from."""
+
+    source_preset_id: Optional[str]
+    conversation_id: Optional[str]
 
 
 # ── built-in selectors ───────────────────────────────────────────────────────
@@ -202,14 +219,100 @@ def user_preset_view(record: Dict[str, Any], catalog: CatalogIndex) -> Preset:
             "created_at": record.get("created_at"), "updated_at": record.get("updated_at")}
 
 
-def list_presets(store: PresetStore, catalog: CatalogIndex) -> List[Preset]:
-    """Built-ins (resolved now) first, then user presets in creation order."""
-    return [resolve_builtin(pid, catalog) for pid in BUILTIN_PRESET_IDS] + \
+# ── last used ────────────────────────────────────────────────────────────────
+
+
+def _valid_last_used(record: Any) -> bool:
+    if not isinstance(record, dict):
+        return False
+    members, chairman, preset_id = record.get("members"), record.get("chairman"), record.get("preset_id")
+    return (isinstance(members, list) and 1 <= len(members) <= MAX_MEMBERS
+            and all(isinstance(m, str) and is_model_id(m) for m in members) and len(set(members)) == len(members)
+            and isinstance(chairman, str) and is_model_id(chairman)
+            and (preset_id is None or (isinstance(preset_id, str) and preset_id != LAST_USED_PRESET_ID
+                                       and bool(_PRESET_REF_RE.match(preset_id))))
+            and isinstance(record.get("conversation_id"), str))
+
+
+class LastUsedStore:
+    """The council of the most recent accepted send: one global record (a single-user app), rewritten
+    atomically on every send as ``{"version": 1, "council": {members, chairman, preset_id, conversation_id,
+    used_at}}``. Concurrent sends: the last write wins.
+    """
+
+    def __init__(self, path: os.PathLike) -> None:
+        self.path = Path(path)
+
+    def get(self) -> Optional[Dict[str, Any]]:
+        """The stored record, or None when there is none or it is unreadable or invalid (the next send
+        overwrites it)."""
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError) as exc:
+            log.warning("last-used council file %s is unreadable (%s); ignoring it", self.path, exc)
+            return None
+        versioned = isinstance(data, dict) and data.get("version") == LAST_USED_FILE_VERSION
+        record = data.get("council") if versioned else None
+        if not _valid_last_used(record):
+            log.warning("ignored an invalid last-used council in %s", self.path)
+            return None
+        used_at = record.get("used_at")
+        return {"members": list(record["members"]), "chairman": record["chairman"], "preset_id": record.get("preset_id"),
+                "conversation_id": record["conversation_id"], "used_at": used_at if isinstance(used_at, str) else None}
+
+    def record(self, members: List[str], chairman: str, preset_id: Optional[str],
+               conversation_id: str) -> Dict[str, Any]:
+        """Stores a validated, canonical council; the moving ``builtin:last-used`` pointer is never its source."""
+        record = {"members": list(members), "chairman": chairman,
+                  "preset_id": None if preset_id == LAST_USED_PRESET_ID else preset_id,
+                  "conversation_id": conversation_id, "used_at": utc_now_iso()}
+        atomic_write_json(self.path, {"version": LAST_USED_FILE_VERSION, "council": record})
+        return record
+
+
+def resolve_last_used(record: Optional[Dict[str, Any]], catalog: CatalogIndex) -> LastUsedPreset:
+    """The last-used council as a preset, resolved against the catalog now; empty before any send.
+
+    Aliases become catalog ids. Unlike user presets, ids that left the catalog are dropped: the picker lists
+    only catalog models, so they could never be unchecked, and a send would be 422 ``unknown_models``. They
+    are listed in ``unavailable`` with the kept ids that are unavailable now (those fail fast at run time).
+    ``chairman`` is None when it left the catalog, can no longer chair, or no member is left.
+    """
+    preset: LastUsedPreset = {
+        "id": LAST_USED_PRESET_ID, "name": "Last used", "description": "The council of your most recent question.",
+        "members": [], "chairman": None, "builtin": True, "unavailable": [], "created_at": None, "updated_at": None,
+        "source_preset_id": None, "conversation_id": None}
+    if record is None:
+        return preset
+    canonical = [catalog.canonical(m) for m in record["members"]]
+    members = list(dict.fromkeys(m for m in canonical if m is not None))
+    chair_id = catalog.canonical(record["chairman"])
+    chair = catalog.get(chair_id) if chair_id else None
+    chairman = chair_id if members and chair and chair["can_chair"] else None
+    gone = [m for m in dict.fromkeys(record["members"] + [record["chairman"]]) if catalog.canonical(m) is None]
+    kept = members + ([chairman] if chairman else [])
+    preset.update(members=members, chairman=chairman,
+                  unavailable=list(dict.fromkeys(gone + [m for m in kept if not catalog.is_available(m)])),
+                  updated_at=record.get("used_at"), source_preset_id=record.get("preset_id"),
+                  conversation_id=record.get("conversation_id"))
+    return preset
+
+
+def list_presets(store: PresetStore, catalog: CatalogIndex,
+                 last_used: Optional[Dict[str, Any]] = None) -> List[Preset]:
+    """Last used first, then the built-ins (resolved now), then user presets in creation order."""
+    return [resolve_last_used(last_used, catalog)] + [resolve_builtin(pid, catalog) for pid in BUILTIN_PRESET_IDS] + \
         [user_preset_view(r, catalog) for r in store.list()]
 
 
-def resolve_preset(preset_id: str, store: PresetStore, catalog: CatalogIndex) -> Preset:
-    """A built-in or user preset by id. Raises :class:`PresetNotFound`."""
+def resolve_preset(preset_id: str, store: PresetStore, catalog: CatalogIndex,
+                   last_used: Optional[Dict[str, Any]] = None) -> Preset:
+    """A built-in, Last used (from the ``last_used`` record) or user preset by id. Raises :class:`PresetNotFound`."""
+    if preset_id == LAST_USED_PRESET_ID:
+        return resolve_last_used(last_used, catalog)
     if preset_id.startswith("builtin:"):
         return resolve_builtin(preset_id, catalog)
     record = store.get(preset_id)

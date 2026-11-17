@@ -5,16 +5,7 @@ import CouncilPicker from './components/CouncilPicker/CouncilPicker';
 import { api as defaultApi } from './api';
 import { buildAssistantMessage, createRunState, reduceCouncilEvent } from './councilEvents.js';
 import { CatalogContext } from './council/CatalogContext.js';
-import {
-  browserStorage,
-  councilPayload,
-  readLastCouncil,
-  resolveInitialDraft,
-  sameSelection,
-  slugifyPresetName,
-  validateDraft,
-  writeLastCouncil,
-} from './council/draft.js';
+import { councilPayload, resolveInitialDraft, sameSelection, slugifyPresetName, validateDraft } from './council/draft.js';
 import { describeApiError } from './council/format.js';
 import { appendTurn } from './council/turns.js';
 import { useMeseResources } from './hooks/useMeseResources.js';
@@ -30,7 +21,6 @@ function App({ api = defaultApi, initialConversationId = null }) {
   const [currentConversationId, setCurrentConversationId] = useState(initialConversationId);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [drafts, setDrafts] = useState({}); // conversation id → council draft edited in the picker
-  const [lastUsed, setLastUsed] = useState(() => readLastCouncil(browserStorage()));
   const [pendingTurn, setPendingTurn] = useState(null); // {conversationId, content, run, active}
   const [notice, setNotice] = useState(null);
   const requestedIdRef = useRef(initialConversationId);
@@ -66,17 +56,16 @@ function App({ api = defaultApi, initialConversationId = null }) {
     if (currentConversationId) loadConversation(currentConversationId);
   }, [currentConversationId, loadConversation]);
 
-  /* ── Council draft (conversation.council → last used → builtin:hybrid) ── */
+  /* ── Council draft (conversation.council → the Last used preset → builtin:hybrid) ── */
   const conversationId = currentConversation ? currentConversation.id : null;
   const presetItems = mese.presets.items;
   const draft = useMemo(() => {
     if (conversationId && drafts[conversationId]) return drafts[conversationId];
     return resolveInitialDraft({
       conversationCouncil: currentConversation ? currentConversation.council : null,
-      lastUsed,
       presets: presetItems,
     }).draft;
-  }, [conversationId, drafts, currentConversation, lastUsed, presetItems]);
+  }, [conversationId, drafts, currentConversation, presetItems]);
   const validation = useMemo(() => validateDraft(draft, mese.index), [draft, mese.index]);
   const isLoading = Boolean(pendingTurn && pendingTurn.active);
   const catalogContext = useMemo(() => ({ index: mese.index, adminUrl: mese.adminUrl }), [mese.index, mese.adminUrl]);
@@ -152,11 +141,12 @@ function App({ api = defaultApi, initialConversationId = null }) {
 
     setNotice(null);
     setPendingTurn({ conversationId: targetId, content, run, active: true });
-    if (writeLastCouncil(browserStorage(), draft)) setLastUsed(draft);
 
     const onEvent = (event) => {
       run = reduceCouncilEvent(run, event, Date.now());
       patchTurn({ run });
+      // The backend accepted the council and recorded it as "Last used": refresh the chip and new-conversation defaults.
+      if (event.type === 'council_started') mese.refreshPresets();
       if (event.type === 'title_complete') loadConversations();
       if (event.type === 'complete') completed = true;
       if (event.type === 'error') failed = true;

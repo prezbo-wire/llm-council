@@ -1,5 +1,8 @@
 """Shared state and HTTP helpers for the FastAPI routes (``main.py`` and ``api_council.py``).
 
+``council_for_send`` is the one choke point of both send routes: it validates and saves the council and
+records it as the "Last used" council (``presets.LastUsedStore``).
+
 Error bodies (§I.5): ``{"detail": {"code": …, …}}``.
 
 - 422 ``unknown_models`` / ``chairman_cannot_chair`` / ``council_required``;
@@ -8,6 +11,7 @@ Error bodies (§I.5): ``{"detail": {"code": …, …}}``.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
@@ -16,11 +20,14 @@ from fastapi import HTTPException, Request
 from .catalog import CatalogIndex, CouncilValidationError, normalize_council
 from .config import Settings
 from .mese_client import MeseClient, MeseError
-from .presets import PresetNotFound, PresetStore, resolve_builtin, resolve_preset
+from .presets import (LAST_USED_PRESET_ID, LastUsedStore, PresetNotFound, PresetStore, resolve_builtin,
+                      resolve_preset)
 from .storage import ConversationStore
 
 if TYPE_CHECKING:
     from .council.tasks import TaskTracker
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +35,7 @@ class AppContext:
     settings: Settings
     store: ConversationStore
     presets: PresetStore
+    last_used: LastUsedStore
     mese: Optional[MeseClient] = None
     #: One tracker per council turn in progress; the lifespan cancels and awaits them on shutdown.
     active_runs: "Set[TaskTracker]" = field(default_factory=set)
@@ -79,12 +87,27 @@ def validate_council(members: List[str], chairman: str, catalog: CatalogIndex) -
 def resolve_preset_council(ctx: AppContext, preset_id: str, catalog: CatalogIndex) -> Optional[Dict[str, Any]]:
     """A preset as a validated council, or None when a built-in cannot resolve. 404 for unknown presets."""
     try:
-        preset = resolve_preset(preset_id, ctx.presets, catalog)
+        preset = resolve_preset(preset_id, ctx.presets, catalog, ctx.last_used.get())
     except PresetNotFound:
         raise http_error(404, "preset_not_found", f"Unknown preset {preset_id!r}") from None
     if not preset["members"] or not preset["chairman"]:
         return None
     return validate_council(preset["members"], preset["chairman"], catalog)
+
+
+def stored_preset_id(ctx: AppContext, preset_id: Optional[str], council: Dict[str, Any]) -> Optional[str]:
+    """The ``preset_id`` to store with a conversation's validated ``council``.
+
+    ``builtin:last-used`` moves with every send, so it is never stored: it becomes the preset the last-used
+    council came from while ``council`` is still that council, else None.
+    """
+    if preset_id != LAST_USED_PRESET_ID:
+        return preset_id
+    record = ctx.last_used.get()
+    if (record and record["chairman"] == council["chairman"] and len(record["members"]) == len(council["members"])
+            and set(record["members"]) == set(council["members"])):
+        return record["preset_id"]
+    return None
 
 
 def _fallback_council(ctx: AppContext, catalog: CatalogIndex) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -105,7 +128,8 @@ async def council_for_send(ctx: AppContext, conversation: Dict[str, Any],
 
     Order: the request's council, then the conversation's council, then the defaults. The chosen council
     is saved as the conversation's council (a request council keeps the saved ``preset_id`` only when it
-    is unchanged).
+    is unchanged) and recorded as the "Last used" council. A send rejected here (422/503) records nothing,
+    and a failing last-used write only logs a warning: a convenience never fails a turn.
     """
     catalog = await load_catalog(ctx)
     saved = conversation.get("council") or None
@@ -123,4 +147,8 @@ async def council_for_send(ctx: AppContext, conversation: Dict[str, Any],
                  and saved.get("preset_id") == preset_id)
     if not unchanged:
         ctx.store.set_council(conversation["id"], council["members"], council["chairman"], preset_id)
+    try:
+        ctx.last_used.record(council["members"], council["chairman"], preset_id, conversation["id"])
+    except OSError as exc:
+        log.warning("could not record the last-used council in %s (%s)", ctx.last_used.path, exc)
     return council, catalog

@@ -13,7 +13,7 @@ Every model call goes through **Mese**, the local model router in `/Users/prezbo
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- `Settings` (frozen dataclass) built by `load_settings()` from env / `.env`: `MESE_URL`, `MESE_API_KEY`, `MESE_ADMIN_URL`, `TITLE_MODEL`, `DEFAULT_COUNCIL`/`DEFAULT_CHAIRMAN`, `COUNCIL_DATA_DIR`, `PRESETS_PATH`, `COUNCIL_HOST`, `COUNCIL_PORT`, `COUNCIL_ALLOWED_ORIGINS`
+- `Settings` (frozen dataclass) built by `load_settings()` from env / `.env`: `MESE_URL`, `MESE_API_KEY`, `MESE_ADMIN_URL`, `TITLE_MODEL`, `DEFAULT_COUNCIL`/`DEFAULT_CHAIRMAN`, `COUNCIL_DATA_DIR`, `PRESETS_PATH`, `COUNCIL_HOST`, `COUNCIL_PORT`, `COUNCIL_ALLOWED_ORIGINS`; derived paths `conversations_dir` and `last_council_path` (`<COUNCIL_DATA_DIR>/last_council.json`)
 - `LEGACY_DISPLAY_NAMES`: read-only names for pre-Mese model ids in old conversations
 - `mask_secret()` (`…last4` at most) and `safe_url()`; the Mese token is never logged or returned
 - `Settings.allowed_hosts`: the `Host` allowlist that matches CORS (hostnames of `COUNCIL_ALLOWED_ORIGINS` + `localhost`/`127.0.0.1`/`::1` + `COUNCIL_HOST` when it is a specific address; `None` = any host when the origins include `*`); `host_of()` parses `Host` headers (`[::1]:8001` → `::1`)
@@ -36,6 +36,7 @@ Every model call goes through **Mese**, the local model router in `/Users/prezbo
 **`catalog.py`**: `CatalogIndex` over Mese's `/v1/models` (alias resolution), `project_model()` → `CouncilModel`, `normalize_council()` (422 `unknown_models` / `chairman_cannot_chair`), `MemberInfo` for runs and snapshots
 
 **`presets.py`**: built-in selectors `builtin:all-local`, `builtin:frontier-cloud`, `builtin:hybrid` (resolved against the live catalog on every request) and `PresetStore` for user presets in `data/presets.json`
+- **Last used** (`builtin:last-used`, first in `/api/presets`): `LastUsedStore` keeps the validated, canonical council of the most recent accepted send in `<data_dir>/last_council.json` (`{"version": 1, "council": {members, chairman, preset_id, conversation_id, used_at}}`, atomic, one global record; `get()` validates and returns None for a missing/invalid file). `resolve_last_used()` canonicalizes aliases, drops ids that left the catalog (listed in `unavailable` with the unavailable kept ids), sets `chairman` None when it is gone or can't chair, and adds `source_preset_id`/`conversation_id`; before any send it has no members. It is not in `schemas.BUILTIN_PRESET_IDS` but is still immutable (409 on PUT/DELETE)
 
 **`storage.py`**
 - JSON conversations in `data/conversations/<id>.json`; ids are validated (no path traversal)
@@ -46,7 +47,7 @@ Every model call goes through **Mese**, the local model router in `/Users/prezbo
 - `status`: `complete` / `partial` for a finished turn, `cancelled` (client gone) / `error` (unexpected exception) for a turn that stopped early, so a user message never stays without its assistant message
 - `update_turn(conversation_id, run_id, patch, title=)`: patches the assistant message of one run (by `council_snapshot.run_id`) and sets the title in one atomic write
 
-**`app_state.py`**: `AppContext` (settings, Mese client, stores), HTTP error helpers, and `council_for_send()` (request council → conversation council → `DEFAULT_COUNCIL` → `builtin:hybrid` → 422 `council_required`; the chosen council is persisted)
+**`app_state.py`**: `AppContext` (settings, Mese client, stores incl. `last_used`), HTTP error helpers, and `council_for_send()` (request council → conversation council → `DEFAULT_COUNCIL` → `builtin:hybrid` → 422 `council_required`; the chosen council is persisted and recorded as Last used; a rejected send (422/503) records nothing, and a failing last-used write only logs a warning). `stored_preset_id()`: `builtin:last-used` moves with every send, so it is never stored as a conversation's `preset_id` (PUT council and `POST /api/conversations` store the preset it came from while the council still equals the record, else None)
 
 **`api_council.py`**: `/api/models` (`?refresh=1` skips the 10 s catalog cache), `/api/mese/health`, `/api/council/plan`, `/api/presets*`, `PUT /api/conversations/{id}/council`
 
@@ -63,6 +64,7 @@ See Mese ARCHITECTURE §I.9 for the full list. Highlights:
 - `api.js`: REST + `sendMessageStreamV2(id, content, council, onEvent)`; the v1 stream call is removed
 - `councilEvents.js`: pure reducer for every §I.6 event (unknown events ignored), tested with `node --test tests/frontend/*.test.mjs`
 - Council picker (`components/CouncilPicker/`): closing it saves the council (`PUT …/council`) only when the user changed the selection while it was open and it differs from the stored one (`pickerShouldCommit`, `sameSelection` in `council/draft.js`); `hooks/useMeseResources.js` reloads the catalog and presets when Mese's health changes (e.g. a key added in Mese admin) and at most every 10 s on window focus
+- Last used (`council/draft.js`): a conversation without a council starts from its council, then the backend's Last used preset (with members and a chairman), then `builtin:hybrid` (`resolveInitialDraft`); there is no localStorage copy. `PresetBar` shows it as the first chip ("↺ Last used", a divider after it, tooltip with chair, send time and source preset), disabled before any send or while it is the current council (`lastUsedChipState`). Applying it tags the draft with `source_preset_id` while that still matches (`draftFromPreset(preset, presets)`); `withPresetMatch` never picks `builtin:last-used`. `App.jsx` refreshes the presets on `council_started`
 - `ModelBadge` (Cloud / Local / FT / Legacy), member cards with queued/loading/retrying/thinking states, Stage-2 per-ranker rows, final-answer error state, and a read-only Mese status pill in the sidebar
 - `dev/replay.js` + `?replay=<fixture>` replays `src/dev/fixtures/*.json` without a backend
 - Light mode theme; primary color #4a90e2; all markdown wrapped in `.markdown-content` (see `index.css`)
@@ -144,14 +146,14 @@ There is no hardcoded model list anymore. Councils are chosen per conversation i
 
 ## Testing Notes
 
-`uv run pytest tests/` runs everything against a mocked Mese: `tests/conftest.py` (WP0, read-only) provides `MeseMock`, an `httpx.MockTransport` that replays the golden Mese transcripts in `tests/fixtures/mese/` and records requests and stream closes, plus a socket guard that blocks non-loopback hosts. WP7 suites: `test_mese_client.py`, `test_council.py`, `test_council_persistence.py` (persist-before-title, cancelled/error turns), `test_api.py` (incl. the Host allowlist), `test_storage.py`, `test_presets.py`, `test_config.py` (shared helpers in `test_support.py`). Live acceptance runs Mese's `bun run smoke` with `LLM_COUNCIL_DIR` set.
+`uv run pytest tests/` runs everything against a mocked Mese: `tests/conftest.py` (WP0, read-only) provides `MeseMock`, an `httpx.MockTransport` that replays the golden Mese transcripts in `tests/fixtures/mese/` and records requests and stream closes, plus a socket guard that blocks non-loopback hosts. WP7 suites: `test_mese_client.py`, `test_council.py`, `test_council_persistence.py` (persist-before-title, cancelled/error turns), `test_api.py` (incl. the Host allowlist), `test_api_last_used.py` (the Last used council through the API; reuses `test_api.py`'s fixtures), `test_storage.py`, `test_presets.py`, `test_config.py` (shared helpers in `test_support.py`). Live acceptance runs Mese's `bun run smoke` with `LLM_COUNCIL_DIR` set.
 
 ## Data Flow Summary
 
 ```
 User Query (+ optional council)
     ↓
-Validate council against the Mese catalog (422 / 503 before streaming) → persist it
+Validate council against the Mese catalog (422 / 503 before streaming) → persist it → record it as Last used
     ↓
 council_started → member_queued × N (+ chairman warmup if local)
     ↓

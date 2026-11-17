@@ -12,6 +12,7 @@
  */
 import { ApiError } from '../api.js';
 import { buildAssistantMessage, reduceCouncilEvents } from '../councilEvents.js';
+import { LAST_USED_PRESET_ID, sameCouncil } from '../council/draft.js';
 import { LEGACY_CONVERSATIONS, REPLAY_ADMIN_URL, REPLAY_CATALOG, replayHealth } from './replayData.js';
 
 const modules = import.meta.glob('./fixtures/*.json', { eager: true, import: 'default' });
@@ -97,7 +98,8 @@ export function createReplaySetup(params) {
   const fixture = REPLAY_FIXTURES[requested] || REPLAY_FIXTURES['hybrid-success'] || REPLAY_FIXTURES[names[0]];
   if (!REPLAY_FIXTURES[requested]) console.warn(`[replay] unknown fixture "${requested}"; available: ${names.join(', ')}`);
   const baseDelay = Math.max(0, Number(params.get('speed')) || 300);
-  const state = { mese: params.get('mese') || 'ok', userPresets: [] };
+  // lastUsed: {members, chairman, preset_id, conversation_id, used_at}, set on every accepted send (as the backend does).
+  const state = { mese: params.get('mese') || 'ok', userPresets: [], lastUsed: null };
 
   const now = () => new Date().toISOString();
   const conversations = new Map();
@@ -128,7 +130,18 @@ export function createReplaySetup(params) {
     if (bad.length) throw new ApiError('unknown models', { status: 422, code: 'unknown_models', detail: { code: 'unknown_models', bad_ids: bad } });
     if (!byId.get(chairman).can_chair) throw new ApiError('chairman cannot chair', { status: 422, code: 'chairman_cannot_chair' });
   };
+  const lastUsedPreset = () => {
+    const used = state.lastUsed; // the replay catalog never changes, so no recorded id leaves it
+    return {
+      id: LAST_USED_PRESET_ID, name: 'Last used', description: 'The council of your most recent question.',
+      members: used ? used.members : [], chairman: used ? used.chairman : null, builtin: true,
+      unavailable: used ? [...new Set([...used.members, used.chairman])].filter((id) => !(byId.get(id) || {}).available) : [],
+      created_at: null, updated_at: used ? used.used_at : null,
+      source_preset_id: used ? used.preset_id : null, conversation_id: used ? used.conversation_id : null,
+    };
+  };
   const presetList = () => [
+    lastUsedPreset(),
     ...builtinPresets(REPLAY_CATALOG),
     ...state.userPresets.map((p) => ({
       ...p, description: null, builtin: false,
@@ -190,6 +203,10 @@ export function createReplaySetup(params) {
       const conv = getConv(id);
       if (meseDown()) throw unreachable();
       if (council) checkCouncil(council);
+      // As the backend: a request council keeps the saved preset label only while unchanged, and is recorded as Last used.
+      const used = council || conv.council;
+      const presetId = conv.council && used && sameCouncil(used, conv.council) ? conv.council.preset_id : null;
+      if (used) state.lastUsed = { members: [...used.members], chairman: used.chairman, preset_id: presetId, conversation_id: id, used_at: now() };
       const first = conv.messages.length === 0;
       conv.messages.push({ role: 'user', content });
       let title = null;
@@ -199,7 +216,7 @@ export function createReplaySetup(params) {
         onEvent(clone(event));
       }
       conv.messages.push(buildAssistantMessage(reduceCouncilEvents(fixture.events)));
-      if (council) conv.council = { ...council, preset_id: null, updated_at: now() };
+      if (council) conv.council = { ...council, preset_id: presetId, updated_at: now() };
       if (first && title) conv.title = title;
     },
   };

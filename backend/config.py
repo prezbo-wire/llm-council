@@ -17,7 +17,8 @@ Environment variables (``.env`` is loaded first; real environment variables win)
                            council; needs ``DEFAULT_CHAIRMAN`` too.
 ``DEFAULT_CHAIRMAN``       Optional chairman id for ``DEFAULT_COUNCIL``.
 ``COUNCIL_DATA_DIR``       Data directory (default ``data``): conversations live in
-                           ``<dir>/conversations``.
+                           ``<dir>/conversations``, the last-used council in
+                           ``<dir>/last_council.json``.
 ``PRESETS_PATH``           User presets file (default ``<COUNCIL_DATA_DIR>/presets.json``).
 ``COUNCIL_HOST``           Bind address (default ``0.0.0.0``).
 ``COUNCIL_PORT``           Bind port (default ``8001``).
@@ -159,6 +160,11 @@ class Settings:
     @property
     def conversations_dir(self) -> str:
         return os.path.join(self.data_dir, "conversations")
+
+    @property
+    def last_council_path(self) -> str:
+        """The council of the most recent accepted send (``presets.LastUsedStore``)."""
+        return os.path.join(self.data_dir, "last_council.json")
 
     @property
     def token_set(self) -> bool:

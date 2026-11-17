@@ -23,14 +23,14 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import api_council
 from .app_state import (AppContext, conversation_not_found, council_for_send, get_ctx, load_catalog,
-                        resolve_preset_council, validate_council)
+                        resolve_preset_council, stored_preset_id, validate_council)
 from .catalog import CatalogIndex
 from .config import SETTINGS, Settings, host_of
 from .contracts import CouncilConfigDict
 from .council import RunnerDeps, TaskTracker, run_council
 from .council import events as ev
 from .mese_client import MeseClient
-from .presets import PresetStore
+from .presets import LastUsedStore, PresetStore
 from .schemas import CreateConversationRequest, SendMessageRequest
 from .storage import DEFAULT_TITLE, ConversationStore, council_record
 
@@ -169,7 +169,10 @@ async def list_conversations(request: Request) -> List[Dict[str, Any]]:
 
 @router.post("/api/conversations")
 async def create_conversation(request: Request, body: Optional[CreateConversationRequest] = None) -> Dict[str, Any]:
-    """Creates a conversation, optionally with a council (or a preset resolved into one)."""
+    """Creates a conversation, optionally with a council (or a preset resolved into one).
+
+    ``builtin:last-used`` is stored as the preset its council came from (see ``stored_preset_id``).
+    """
     ctx = get_ctx(request)
     body = body or CreateConversationRequest()
     council = None
@@ -180,7 +183,8 @@ async def create_conversation(request: Request, body: Optional[CreateConversatio
         else:
             checked = resolve_preset_council(ctx, body.preset_id or "", catalog)
         if checked is not None:
-            council = council_record(checked["members"], checked["chairman"], body.preset_id)
+            council = council_record(checked["members"], checked["chairman"],
+                                     stored_preset_id(ctx, body.preset_id, checked))
     return ctx.store.create(str(uuid.uuid4()), council)
 
 
@@ -226,7 +230,8 @@ def create_app(settings: Optional[Settings] = None, *, mese_client: Optional[Mes
     """Builds the app. Tests pass ``settings`` and a ``mese_client`` backed by a mock transport."""
     settings = settings or SETTINGS
     ctx = AppContext(settings=settings, store=ConversationStore(settings.conversations_dir),
-                     presets=PresetStore(settings.presets_path), mese=mese_client)
+                     presets=PresetStore(settings.presets_path), last_used=LastUsedStore(settings.last_council_path),
+                     mese=mese_client)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:

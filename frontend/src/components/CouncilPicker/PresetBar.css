@@ -35,6 +35,24 @@
   background: #e8f4fd;
 }
 
+/* "Last used" (builtin:last-used): first chip, a ↺ glyph, a thin divider before the other presets. */
+.preset-glyph {
+  font-size: 13px;
+  line-height: 1;
+  color: #4a90e2;
+}
+
+.preset-apply:disabled .preset-glyph {
+  color: inherit;
+}
+
+.preset-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 3px 4px;
+  background: #e0e0e0;
+}
+
 .preset-apply,
 .preset-delete {
   border: none;

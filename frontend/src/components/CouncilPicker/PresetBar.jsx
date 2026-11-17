@@ -1,25 +1,43 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { useNameOf } from '../../council/CatalogContext.js';
+import { LAST_USED_PRESET_ID, lastUsedChipState } from '../../council/draft.js';
 import './PresetBar.css';
 
-function presetTitle(preset) {
+/** "Nov 17, 2026, 1:00 PM" in the viewer's locale, or null for a missing or bad timestamp. */
+function localTime(iso) {
+  const date = iso ? new Date(iso) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : null;
+}
+
+/** `lastUsed` (Last used chip only): `{reason, nameOf, sourceName}` adds why it is disabled, the chair, when and from which preset. */
+function presetTitle(preset, lastUsed = null) {
   const lines = [];
+  if (lastUsed && lastUsed.reason) lines.push(lastUsed.reason);
   if (preset.description) lines.push(preset.description);
   lines.push(`${preset.members.length} member${preset.members.length === 1 ? '' : 's'}`);
+  if (lastUsed && preset.chairman) lines.push(`Chair: ${lastUsed.nameOf(preset.chairman)}`);
   if (!preset.chairman) lines.push('No chairman available: pick one after applying');
+  if (lastUsed) {
+    const sent = localTime(preset.updated_at);
+    if (sent) lines.push(`Sent ${sent}`);
+    if (lastUsed.sourceName) lines.push(`From preset ${lastUsed.sourceName}`);
+  }
   if (preset.unavailable && preset.unavailable.length) lines.push(`Unavailable now: ${preset.unavailable.join(', ')}`);
   return lines.join('\n');
 }
 
 /**
- * One-click preset chips (built-in selectors and user presets), "Save as preset…" and delete
- * for user presets. Applying a preset with unavailable members still applies it; the picker
- * flags those members.
+ * One-click preset chips (Last used first, then built-in selectors and user presets), "Save as preset…"
+ * and delete for user presets. Applying a preset with unavailable members still applies it; the picker
+ * flags those members. Last used is never "active" (no draft carries its id); it is disabled before any
+ * send and while it already is the current council.
  */
-export default function PresetBar({ presets, activePresetId, canSave, onApply, onSave, onDelete }) {
+export default function PresetBar({ presets, draft = null, activePresetId, canSave, onApply, onSave, onDelete }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const nameOf = useNameOf();
 
   const items = presets.items || [];
 
@@ -54,6 +72,12 @@ export default function PresetBar({ presets, activePresetId, canSave, onApply, o
     }
   };
 
+  /** Disabled state and tooltip details of the Last used chip. */
+  const lastUsedInfo = (preset) => {
+    const source = preset.source_preset_id ? items.find((p) => p.id === preset.source_preset_id && p.id !== preset.id) : null;
+    return { ...lastUsedChipState(preset, draft), nameOf, sourceName: source ? source.name : null };
+  };
+
   return (
     <div className="preset-bar">
       <span className="preset-bar-label">Presets</span>
@@ -62,25 +86,37 @@ export default function PresetBar({ presets, activePresetId, canSave, onApply, o
       {items.map((preset) => {
         const empty = preset.members.length === 0;
         const flagged = (preset.unavailable && preset.unavailable.length > 0) || !preset.chairman;
+        const lastUsed = preset.id === LAST_USED_PRESET_ID ? lastUsedInfo(preset) : null;
+        const kind = lastUsed ? 'builtin last-used' : preset.builtin ? 'builtin' : 'user';
         return (
-          <span key={preset.id} className={`preset-chip ${preset.id === activePresetId ? 'active' : ''} ${preset.builtin ? 'builtin' : 'user'}`}>
-            <button type="button" className="preset-apply" disabled={empty} title={presetTitle(preset)} onClick={() => onApply(preset)}>
-              {preset.name}
-              {flagged && !empty && <span className="preset-flag" aria-label="Some members are unavailable">!</span>}
-            </button>
-            {!preset.builtin && (
+          <Fragment key={preset.id}>
+            <span className={`preset-chip ${preset.id === activePresetId ? 'active' : ''} ${kind}`}>
               <button
                 type="button"
-                className="preset-delete"
-                aria-label={`Delete preset ${preset.name}`}
-                title="Delete preset"
-                disabled={busy}
-                onClick={() => remove(preset)}
+                className="preset-apply"
+                disabled={lastUsed ? lastUsed.disabled : empty}
+                title={presetTitle(preset, lastUsed)}
+                onClick={() => onApply(preset)}
               >
-                ×
+                {lastUsed && <span className="preset-glyph" aria-hidden="true">↺</span>}
+                {preset.name}
+                {flagged && !empty && <span className="preset-flag" aria-label="Some members are unavailable">!</span>}
               </button>
-            )}
-          </span>
+              {!preset.builtin && (
+                <button
+                  type="button"
+                  className="preset-delete"
+                  aria-label={`Delete preset ${preset.name}`}
+                  title="Delete preset"
+                  disabled={busy}
+                  onClick={() => remove(preset)}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+            {lastUsed && <span className="preset-divider" aria-hidden="true"></span>}
+          </Fragment>
         );
       })}
       {naming ? (

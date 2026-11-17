@@ -1,6 +1,6 @@
 /**
  * Council draft logic for the picker (§I.5, §I.9): validation, initial draft resolution,
- * member/chair toggles, preset matching and the last-used council in localStorage.
+ * member/chair toggles, preset matching and the "Last used" preset.
  *
  * A draft is `{members: string[], chairman: string|null, presetId: string|null}`.
  */
@@ -11,7 +11,11 @@ export const MODEL_ID_RE = /^[a-z0-9][a-z0-9-]*\/\S{1,200}$/;
 /** Mirrors backend/schemas.py PRESET_ID_PATTERN (user presets). */
 export const PRESET_ID_RE = /^[a-z0-9-]{1,40}$/;
 export const DEFAULT_PRESET_ID = 'builtin:hybrid';
-export const LAST_COUNCIL_KEY = 'llm-council.lastCouncil';
+/**
+ * The backend's council of the most recent accepted send (backend/presets.py), listed first. It moves with
+ * every send, so it is never a draft's presetId: applying it keeps the preset it came from (`source_preset_id`).
+ */
+export const LAST_USED_PRESET_ID = 'builtin:last-used';
 
 /** @typedef {{members: string[], chairman: string|null, presetId: string|null}} CouncilDraft */
 
@@ -33,22 +37,36 @@ export function normalizeDraft(raw) {
   };
 }
 
-/** @returns {CouncilDraft|null} */
-export function draftFromPreset(preset) {
+/**
+ * The draft a preset applies. Last used is tagged with the preset it came from while it still matches it,
+ * else with another exact match, else null; never with `builtin:last-used` itself.
+ * @returns {CouncilDraft|null}
+ */
+export function draftFromPreset(preset, presets = []) {
   if (!preset || !Array.isArray(preset.members)) return null;
-  return { members: [...preset.members], chairman: isString(preset.chairman) ? preset.chairman : null, presetId: preset.id ?? null };
+  const members = [...preset.members];
+  const chairman = isString(preset.chairman) ? preset.chairman : null;
+  if (preset.id === LAST_USED_PRESET_ID) {
+    const source = isString(preset.source_preset_id) ? preset.source_preset_id : null;
+    return withPresetMatch({ members, chairman, presetId: source }, presets);
+  }
+  return { members, chairman, presetId: preset.id ?? null };
 }
 
 /**
- * Fallback order (§I.9): the conversation's council, then the last-used council, then builtin:hybrid.
+ * Fallback order (§I.9): the conversation's council, then the Last used preset (when it has members
+ * and a chairman), then builtin:hybrid.
  * @returns {{draft: CouncilDraft|null, source: 'conversation'|'last-used'|'preset'|null}}
  */
-export function resolveInitialDraft({ conversationCouncil = null, lastUsed = null, presets = [] } = {}) {
+export function resolveInitialDraft({ conversationCouncil = null, presets = [] } = {}) {
   const fromConversation = normalizeDraft(conversationCouncil);
   if (fromConversation && fromConversation.members.length > 0) return { draft: fromConversation, source: 'conversation' };
-  const fromLastUsed = normalizeDraft(lastUsed);
-  if (fromLastUsed && fromLastUsed.members.length > 0) return { draft: fromLastUsed, source: 'last-used' };
-  const hybrid = (presets || []).find((p) => p && p.id === DEFAULT_PRESET_ID);
+  const list = presets || [];
+  const lastUsed = list.find((p) => p && p.id === LAST_USED_PRESET_ID);
+  if (lastUsed && Array.isArray(lastUsed.members) && lastUsed.members.length > 0 && isString(lastUsed.chairman)) {
+    return { draft: draftFromPreset(lastUsed, list), source: 'last-used' };
+  }
+  const hybrid = list.find((p) => p && p.id === DEFAULT_PRESET_ID);
   const fromPreset = draftFromPreset(hybrid);
   if (fromPreset) return { draft: fromPreset, source: 'preset' };
   return { draft: null, source: null };
@@ -84,10 +102,13 @@ export function pickerShouldCommit({ edited = false, openedWith = null, draft = 
   return !sameSelection(openedWith, draft);
 }
 
-/** Keeps `presetId` only while the draft still equals that preset; otherwise picks any exact match. */
+/**
+ * Keeps `presetId` only while the draft still equals that preset; otherwise picks any exact match.
+ * Last used is skipped: it equals every council just sent and would win over "My team" or "Hybrid".
+ */
 export function withPresetMatch(draft, presets) {
   if (!draft) return draft;
-  const list = Array.isArray(presets) ? presets : [];
+  const list = (Array.isArray(presets) ? presets : []).filter((p) => p && p.id !== LAST_USED_PRESET_ID);
   const current = list.find((p) => p.id === draft.presetId);
   if (current && sameCouncil(draft, current)) return draft;
   const match = list.find((p) => sameCouncil(draft, p));
@@ -170,32 +191,14 @@ export function slugifyPresetName(name, taken = []) {
   return base;
 }
 
-/** Reads the last-used council; any storage or parse failure yields null. */
-export function readLastCouncil(storage) {
-  try {
-    const raw = storage ? storage.getItem(LAST_COUNCIL_KEY) : null;
-    return raw ? normalizeDraft(JSON.parse(raw)) : null;
-  } catch {
-    return null;
+/**
+ * Whether the Last used chip can be applied: `{disabled, reason}`; `reason` says why not (its tooltip).
+ * Disabled before any send, and when it already is the current council.
+ */
+export function lastUsedChipState(preset, draft) {
+  if (!preset || !Array.isArray(preset.members) || preset.members.length === 0) {
+    return { disabled: true, reason: 'Nothing sent yet' };
   }
-}
-
-/** Stores the last-used council; returns false when storage is unavailable (private mode, quota). */
-export function writeLastCouncil(storage, draft) {
-  try {
-    if (!storage || !draft) return false;
-    storage.setItem(LAST_COUNCIL_KEY, JSON.stringify({ members: draft.members, chairman: draft.chairman, presetId: draft.presetId }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Safe accessor for window.localStorage (throws in some sandboxed contexts). */
-export function browserStorage() {
-  try {
-    return typeof window !== 'undefined' ? window.localStorage : null;
-  } catch {
-    return null;
-  }
+  if (draft && sameCouncil(draft, preset)) return { disabled: true, reason: 'Already the current council' };
+  return { disabled: false, reason: null };
 }

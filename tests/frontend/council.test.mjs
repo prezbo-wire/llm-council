@@ -32,11 +32,12 @@ import {
   unavailableText,
 } from '../../frontend/src/council/format.js';
 import {
-  LAST_COUNCIL_KEY,
+  LAST_USED_PRESET_ID,
   MAX_MEMBERS,
+  draftFromPreset,
+  lastUsedChipState,
   normalizeDraft,
   pickerShouldCommit,
-  readLastCouncil,
   resolveInitialDraft,
   sameSelection,
   slugifyPresetName,
@@ -44,7 +45,6 @@ import {
   toggleMember,
   validateDraft,
   withPresetMatch,
-  writeLastCouncil,
 } from '../../frontend/src/council/draft.js';
 import {
   FOCUS_RESOURCE_REFRESH_MS,
@@ -217,17 +217,60 @@ describe('draft', () => {
     chairman: 'anthropic/claude-opus-5-5', builtin: true, unavailable: [],
   };
 
-  test('initial draft: conversation council, then last used, then builtin:hybrid', () => {
+  /** The backend's builtin:last-used entry (backend/presets.py resolve_last_used). */
+  const lastUsedPreset = (members, chairman, source = null) => ({
+    id: LAST_USED_PRESET_ID, name: 'Last used', members, chairman, builtin: true, unavailable: [],
+    updated_at: '2026-11-17T12:00:00Z', source_preset_id: source, conversation_id: 'c1',
+  });
+  const myTeam = {
+    id: 'my-team', name: 'My team', members: ['anthropic/claude-opus-5-5', 'spark/qwen3.8:27b'],
+    chairman: 'anthropic/claude-opus-5-5', builtin: false, unavailable: [],
+  };
+
+  test('initial draft: conversation council, then the Last used preset, then builtin:hybrid', () => {
     const conversationCouncil = { members: ['spark/qwen3.8:27b'], chairman: 'spark/gpt-oss:120b', preset_id: null, updated_at: 'x' };
-    const lastUsed = { members: ['anthropic/claude-opus-5-5'], chairman: 'anthropic/claude-opus-5-5', presetId: null };
-    assert.deepEqual(resolveInitialDraft({ conversationCouncil, lastUsed, presets: [hybrid] }), {
+    const lastUsed = lastUsedPreset(['anthropic/claude-opus-5-5'], 'anthropic/claude-opus-5-5');
+    assert.deepEqual(resolveInitialDraft({ conversationCouncil, presets: [lastUsed, hybrid] }), {
       draft: { members: ['spark/qwen3.8:27b'], chairman: 'spark/gpt-oss:120b', presetId: null },
       source: 'conversation',
     });
-    assert.equal(resolveInitialDraft({ conversationCouncil: null, lastUsed, presets: [hybrid] }).source, 'last-used');
-    const fallback = resolveInitialDraft({ conversationCouncil: null, lastUsed: null, presets: [hybrid] });
-    assert.deepEqual(fallback, { draft: { members: hybrid.members, chairman: hybrid.chairman, presetId: 'builtin:hybrid' }, source: 'preset' });
+    assert.deepEqual(resolveInitialDraft({ conversationCouncil: null, presets: [lastUsed, hybrid] }), {
+      draft: { members: ['anthropic/claude-opus-5-5'], chairman: 'anthropic/claude-opus-5-5', presetId: null },
+      source: 'last-used',
+    });
+    const hybridDraft = { draft: { members: hybrid.members, chairman: hybrid.chairman, presetId: 'builtin:hybrid' }, source: 'preset' };
+    assert.deepEqual(resolveInitialDraft({ presets: [lastUsedPreset([], null), hybrid] }), hybridDraft, 'nothing sent yet');
+    assert.deepEqual(resolveInitialDraft({ presets: [lastUsedPreset(['anthropic/claude-opus-5-5'], null), hybrid] }), hybridDraft, 'its chair is gone');
     assert.deepEqual(resolveInitialDraft({}), { draft: null, source: null });
+  });
+
+  test('withPresetMatch never picks builtin:last-used', () => {
+    const lastUsed = lastUsedPreset([...myTeam.members], myTeam.chairman, 'my-team');
+    const draft = { members: [...myTeam.members].reverse(), chairman: myTeam.chairman, presetId: null };
+    assert.equal(withPresetMatch(draft, [lastUsed, hybrid, myTeam]).presetId, 'my-team');
+    assert.equal(withPresetMatch({ ...draft, presetId: LAST_USED_PRESET_ID }, [lastUsed, myTeam]).presetId, 'my-team');
+    const onlyLastUsed = lastUsedPreset(['spark/gpt-oss:120b'], 'spark/gpt-oss:120b');
+    assert.equal(withPresetMatch({ members: ['spark/gpt-oss:120b'], chairman: 'spark/gpt-oss:120b', presetId: null }, [onlyLastUsed, hybrid]).presetId, null);
+  });
+
+  test('applying Last used keeps the source preset only while it still matches', () => {
+    const presets = [lastUsedPreset([...myTeam.members], myTeam.chairman, 'my-team'), hybrid, myTeam];
+    assert.deepEqual(draftFromPreset(presets[0], presets), { members: myTeam.members, chairman: myTeam.chairman, presetId: 'my-team' });
+    const edited = { ...myTeam, members: ['spark/qwen3.8:27b'] }; // "My team" changed since that send
+    assert.equal(draftFromPreset(presets[0], [presets[0], hybrid, edited]).presetId, null);
+    const asHybrid = lastUsedPreset([...hybrid.members], hybrid.chairman, 'my-team');
+    assert.equal(draftFromPreset(asHybrid, [asHybrid, hybrid, myTeam]).presetId, 'builtin:hybrid', 'another exact match');
+    assert.equal(draftFromPreset(lastUsedPreset(['a/b'], 'a/b'), []).presetId, null);
+    assert.equal(draftFromPreset(hybrid).presetId, 'builtin:hybrid');
+  });
+
+  test('lastUsedChipState: disabled when empty or already the current council', () => {
+    const lastUsed = lastUsedPreset([...myTeam.members], myTeam.chairman, 'my-team');
+    assert.deepEqual(lastUsedChipState(lastUsedPreset([], null), null), { disabled: true, reason: 'Nothing sent yet' });
+    const current = { members: [...myTeam.members].reverse(), chairman: myTeam.chairman, presetId: 'my-team' };
+    assert.deepEqual(lastUsedChipState(lastUsed, current), { disabled: true, reason: 'Already the current council' });
+    assert.deepEqual(lastUsedChipState(lastUsed, { ...current, chairman: 'spark/qwen3.8:27b' }), { disabled: false, reason: null });
+    assert.deepEqual(lastUsedChipState(lastUsed, null), { disabled: false, reason: null });
   });
 
   test('valid: 1–8 members plus a chairman that can chair', () => {
@@ -277,22 +320,6 @@ describe('draft', () => {
     assert.equal(slugifyPresetName('???'), 'preset');
     assert.equal(slugifyPresetName('mix', ['mix', 'mix-2']), 'mix-3');
     assert.match(slugifyPresetName('x'.repeat(80), ['x'.repeat(40)]), /^[a-z0-9-]{1,40}$/);
-  });
-
-  test('last-used council survives storage failures', () => {
-    const store = new Map();
-    const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
-    assert.equal(writeLastCouncil(storage, { members: ['a/b'], chairman: 'a/b', presetId: null }), true);
-    assert.ok(store.has(LAST_COUNCIL_KEY));
-    assert.deepEqual(readLastCouncil(storage), { members: ['a/b'], chairman: 'a/b', presetId: null });
-    const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('quota'); } };
-    assert.equal(readLastCouncil(broken), null);
-    assert.equal(writeLastCouncil(broken, { members: [], chairman: null }), false);
-    store.set(LAST_COUNCIL_KEY, '{not json');
-    assert.equal(readLastCouncil(storage), null);
-    store.set(LAST_COUNCIL_KEY, JSON.stringify({ members: [1, 2] }));
-    assert.equal(readLastCouncil(storage), null);
-    assert.equal(normalizeDraft({ members: ['a/b'], chairman: '', preset_id: 'builtin:hybrid' }).presetId, 'builtin:hybrid');
   });
 });
 
@@ -359,6 +386,7 @@ describe('review fixes', () => {
     assert.equal(sameSelection({ ...shown, presetId: null }, stored), false, 'the preset is part of the selection');
     assert.equal(sameSelection(shown, null), false);
     assert.equal(sameSelection(null, undefined), true);
+    assert.equal(normalizeDraft({ members: ['a/b'], chairman: '', preset_id: 'builtin:hybrid' }).presetId, 'builtin:hybrid');
     // Legacy conversation without a council: the picker shows the default draft; Done must not persist it.
     assert.equal(pickerShouldCommit({ edited: false, openedWith: shown, draft: shown, valid: true }), false);
     // The default changed underneath (presets reloaded) while the picker was open: still no write.
