@@ -101,9 +101,9 @@ async def test_member_status_maps_mese_frames_and_reasoning(store):
     assert [e["deltaText"] for e in log.of("member_streaming", memberId=QWEN)] == ["The answer is", " 4."]
     started = log.one("council_started")
     assert started["members"][0] == {"memberId": QWEN, "displayName": "Qwen3.8 27B", "kind": "local", "providerId": None,
-                                     "nodeId": "spark", "canRank": True}
+                                     "nodeId": "spark", "canRank": True, "billing": "local"}
     assert started["chairman"] == {"modelId": OPUS, "displayName": "Claude Opus 5.5", "kind": "cloud",
-                                   "providerId": "anthropic", "nodeId": None}
+                                   "providerId": "anthropic", "nodeId": None, "billing": "api_key"}
 
 
 async def test_can_rank_false_members_are_excluded_from_stage2(store):
@@ -268,9 +268,11 @@ async def test_council_snapshot_and_usage_are_stored(store):
     ft = next(m for m in snapshot["members"] if m["id"] == FT)
     assert ft == {"id": FT, "display_name": "Legal Qwen v3", "kind": "custom", "provider_id": None, "node_id": "spark",
                   "upstream_model": "legal-qwen-v3:latest", "can_rank": False,
-                  "lineage": {"name": "legal-qwen", "version": "v3", "training_run_id": "run-2026-10-20-a"}}
+                  "lineage": {"name": "legal-qwen", "version": "v3", "training_run_id": "run-2026-10-20-a"},
+                  "billing": "local"}
     assert snapshot["chairman"] == {"id": OPUS, "display_name": "Claude Opus 5.5", "kind": "cloud",
-                                    "provider_id": "anthropic", "node_id": None, "upstream_model": "claude-opus-5-5"}
+                                    "provider_id": "anthropic", "node_id": None, "upstream_model": "claude-opus-5-5",
+                                    "billing": "api_key"}
     usage = _persisted(store)["usage"]
     opus_calls = len([c for c in chat_calls(mock) if c["model"] == OPUS])  # stage1, stage2, stage3, title
     assert usage["cost_usd"] == pytest.approx(0.01 * opus_calls)

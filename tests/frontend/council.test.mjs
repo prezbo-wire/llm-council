@@ -95,6 +95,7 @@ describe('models', () => {
           ? { input: Math.round(Number(m.pricing.prompt) * 1e12) / 1e6, output: Math.round(Number(m.pricing.completion) * 1e12) / 1e6 }
           : null,
         price_verified: x.price_verified,
+        billing: x.billing,
         tags: x.tags,
         lineage: x.lineage ? { name: x.lineage.name, version: x.lineage.version } : null,
         ...SPARK_ONLY[m.id],

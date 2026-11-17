@@ -37,6 +37,8 @@ MAX_ERROR_MESSAGE = 500
 
 #: Fallback error codes for HTTP errors whose body is not a Mese error body.
 _HTTP_FALLBACK_CODES = {401: "unauthorized", 404: "model_not_found", 429: "upstream_rate_limited"}
+#: Codes that are final whatever the status says: a ChatGPT plan usage limit (429) is never retried (Mese §D.3).
+_NEVER_RETRYABLE = frozenset({"plan_limit_exceeded"})
 
 
 class MeseError(Exception):
@@ -74,7 +76,8 @@ def parse_error_body(raw: bytes, status: int) -> Tuple[str, str, bool]:
     if isinstance(error, dict) and isinstance(error.get("code"), str):
         mese = error.get("mese") if isinstance(error.get("mese"), dict) else {}
         message = error.get("message") if isinstance(error.get("message"), str) else error["code"]
-        return error["code"], _truncate(message), bool(mese.get("retryable", retryable))
+        retryable = bool(mese.get("retryable", retryable)) and error["code"] not in _NEVER_RETRYABLE
+        return error["code"], _truncate(message), retryable
     code = _HTTP_FALLBACK_CODES.get(status, "upstream_error")
     return code, f"Mese returned HTTP {status}", retryable
 
@@ -229,7 +232,7 @@ class _StreamAccumulator:
             mese = error.get("mese") if isinstance(error.get("mese"), dict) else {}
             result.error_code = str(error.get("code") or "upstream_error")
             result.error_message = _truncate(str(error.get("message") or result.error_code))
-            result.retryable = bool(mese.get("retryable", False))
+            result.retryable = bool(mese.get("retryable", False)) and result.error_code not in _NEVER_RETRYABLE
         else:
             result.error_code = "upstream_error"
             result.error_message = f"unexpected finish_reason {finish_reason!r}"

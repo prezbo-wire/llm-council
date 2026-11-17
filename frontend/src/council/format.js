@@ -2,6 +2,7 @@
  * Display formatting for council UI: prices, costs, tokens, durations, error and status texts.
  * Pure functions (no React) so they are unit-tested with `node --test`.
  */
+import { MANAGE_USAGE, PLAN_LIMIT_DETAIL, PLAN_LIMIT_TITLE, isPlanBilled } from './billing.js';
 
 function trimZeros(text) {
   return text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
@@ -16,13 +17,16 @@ export function formatUsdPerMtok(value) {
 }
 
 /**
- * Picker price label: "$4 / $20", "free · local", "price unverified".
- * @returns {{text: string, tone: 'price'|'free'|'unverified', title: string}}
+ * Picker price label: "$4 / $20", "free · local", "ChatGPT plan", "price unverified".
+ * @returns {{text: string, tone: 'price'|'free'|'plan'|'unverified', title: string}}
  */
 export function formatModelPrice(model) {
   if (!model) return { text: '', tone: 'price', title: '' };
   if (model.kind === 'local' || model.kind === 'custom') {
     return { text: 'free · local', tone: 'free', title: 'Runs on your own hardware' };
+  }
+  if (isPlanBilled(model)) {
+    return { text: 'ChatGPT plan', tone: 'plan', title: 'No API cost: billed to your ChatGPT plan and counts toward its usage limits' };
   }
   const price = model.price_per_mtok;
   if (!price || typeof price.input !== 'number' || typeof price.output !== 'number') {
@@ -35,9 +39,14 @@ export function formatModelPrice(model) {
   return { text, tone: 'price', title: 'USD per 1M input / output tokens' };
 }
 
-/** Run or call cost: 0 → "$0", 0.0123 → "$0.0123", 0.00412 → "$0.00412", 1.5 → "$1.50". */
-export function formatCost(usd) {
+/**
+ * Run or call cost: 0 → "$0", 0.0123 → "$0.0123", 0.00412 → "$0.00412", 1.5 → "$1.50".
+ * With `plan` (the call, or some call of the run, was billed to the ChatGPT plan) the plan part reads
+ * "$0 (plan)": a plan call → "$0 (plan)", a run with API-key calls too → "$0.0123 + $0 (plan)".
+ */
+export function formatCost(usd, { plan = false } = {}) {
   if (typeof usd !== 'number' || !Number.isFinite(usd)) return null;
+  if (plan) return usd === 0 ? '$0 (plan)' : `${formatCost(usd)} + $0 (plan)`;
   if (usd === 0) return '$0';
   if (usd < 0.0001) return '<$0.0001';
   if (usd < 1) return `$${Number(usd.toPrecision(3)).toString()}`;
@@ -69,10 +78,10 @@ export function formatElapsed(ms) {
   return seconds ? `${minutes} m ${seconds} s` : `${minutes} m`;
 }
 
-/** Card footer: "$0.0123 · 1.4k tok". Total tokens = prompt + completion. */
-export function formatUsageFooter({ costUsd = null, usage = null } = {}) {
+/** Card footer: "$0.0123 · 1.4k tok" ("$0 (plan) · 1.4k tok" with `plan`). Total tokens = prompt + completion. */
+export function formatUsageFooter({ costUsd = null, usage = null, plan = false } = {}) {
   const parts = [];
-  const cost = formatCost(costUsd);
+  const cost = formatCost(costUsd, { plan });
   if (cost) parts.push(cost);
   if (usage && typeof usage === 'object') {
     const total = (usage.promptTokens ?? usage.prompt_tokens ?? 0) + (usage.completionTokens ?? usage.completion_tokens ?? 0);
@@ -113,7 +122,18 @@ export const ERROR_TEXT = Object.freeze({
   unknown_models: 'Some models are not in the Mese catalog',
   chairman_cannot_chair: 'This chairman cannot chair',
   council_required: 'Pick a council first',
+  plan_limit_exceeded: PLAN_LIMIT_TITLE,
 });
+
+/** Fixed explanations that replace Mese's message (the components keep that message as a tooltip). */
+const ERROR_DETAIL = Object.freeze({ plan_limit_exceeded: PLAN_LIMIT_DETAIL });
+/** The primary action for an error, if it has one: a ChatGPT usage limit is reviewed in ChatGPT settings. */
+const ERROR_ACTION = Object.freeze({ plan_limit_exceeded: MANAGE_USAGE });
+
+/** `{label, href}` of the error's primary action (plan_limit_exceeded → "Manage usage"), else null. */
+export function errorActionFor(code) {
+  return code && Object.prototype.hasOwnProperty.call(ERROR_ACTION, code) ? ERROR_ACTION[code] : null;
+}
 
 /**
  * @returns {{title: string, detail: string|null, code: string|null}} title is the human text,
@@ -122,6 +142,9 @@ export const ERROR_TEXT = Object.freeze({
 export function humanizeError(code, message) {
   const raw = typeof message === 'string' ? message.trim() : '';
   const known = code && Object.prototype.hasOwnProperty.call(ERROR_TEXT, code) ? ERROR_TEXT[code] : null;
+  if (known && Object.prototype.hasOwnProperty.call(ERROR_DETAIL, code)) {
+    return { title: known, detail: ERROR_DETAIL[code], code };
+  }
   if (known) {
     const detail = raw && raw.toLowerCase() !== known.toLowerCase() ? raw : null;
     return { title: known, detail, code: code || null };
@@ -149,9 +172,17 @@ const UNAVAILABLE_TEXT = {
   node_disabled: { text: 'Node disabled in Mese', admin: true },
   not_installed: { text: 'Not installed on the node', admin: true },
   circuit_open: { text: 'Temporarily unavailable (circuit open)', admin: false },
+  // ChatGPT plan models (Mese spec §6.3): Resume and the plan state live in Mese admin's ChatGPT card.
+  plan_limited: { text: 'ChatGPT usage limit reached: paused in Mese', admin: true },
+  plan_unavailable: { text: 'Not available on your ChatGPT plan', admin: true },
 };
 
-export function unavailableText(reason) {
+/** A plan model has no API key: it needs ChatGPT connected in Mese admin. */
+const PLAN_NO_CREDENTIAL = Object.freeze({ text: 'ChatGPT not connected: Continue with ChatGPT in Mese admin', admin: true });
+
+/** `model` (optional) tailors the text for ChatGPT-plan models. */
+export function unavailableText(reason, model = null) {
+  if (reason === 'no_credential' && isPlanBilled(model)) return PLAN_NO_CREDENTIAL;
   if (reason && UNAVAILABLE_TEXT[reason]) return UNAVAILABLE_TEXT[reason];
   return { text: reason ? `Unavailable (${reason})` : 'Unavailable', admin: false };
 }

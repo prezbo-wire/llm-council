@@ -78,6 +78,44 @@ effectively exclusive ("exclusive (auto)"). The class is set per model in Mese a
 - **Runs:** unchanged. The chairman warmup stays best-effort; Mese answers `skip` for an exclusive model, which
   then loads when Stage 3 needs it.
 
+## ChatGPT plan models (Mese `chatgpt/*`)
+
+Mese can serve models billed to the user's own ChatGPT Plus/Pro plan ("Sign in with ChatGPT"; Mese ARCHITECTURE
+§D.1–§D.3 and §F). They are ordinary cloud models to llm-council, with one rule: **billing never switches**.
+
+- **Ids.** `chatgpt/<slug>`, e.g. `chatgpt/gpt-6.1-sol`, separate from the API-key ids (`openai/gpt-6.1-sol`).
+  Mese rejects aliases between the two; llm-council also ignores any alias whose two ends differ in billing
+  (`CatalogIndex`), so a stored council, a preset or Last used never resolves one to the other.
+- **Catalog.** `CouncilModel.billing` copies `/v1/models` `mese.billing`: `api_key`, `chatgpt_plan` or `local`
+  (null for an older Mese, where only the `chatgpt/` prefix marks a plan model). Plan models have pricing `0`/`0`
+  (no USD; they count toward the plan's usage limits) and no residency. Unavailable reasons: `plan_limited` (Mese
+  paused every `chatgpt/*` model after a usage limit: still listed, greyed out), `plan_unavailable` (not eligible,
+  or the account no longer lists the model) and `no_credential` (ChatGPT not connected in Mese admin).
+- **Presets.** The built-ins never pick a plan model, even one tagged `frontier` or `default_chair`: they are
+  selectors resolved on every request, so including plan models would switch the same preset between plan usage
+  and API-key billing whenever ChatGPT is connected, paused or resumed (and Hybrid's "cheapest" rule would always
+  take the $0 plan model). A plan model joins a council only by a manual pick or a user preset.
+- **Runs.** A usage limit is `plan_limit_exceeded`: HTTP 429 before any byte when Mese refuses at admission while
+  paused (`tests/fixtures/mese/plan_limit_paused.json`), or a finish `error` in the stream, with no text when ChatGPT
+  refused before answering (`plan_limit_pre_stream.sse`, `events: true` commits the stream first) or after text
+  (`plan_limit_midstream.sse`); all three are captured from Mese. It is never retried, by Mese or llm-council, and no other model stands
+  in. The member gets `member_error` (or `stage2_member_error`; a chairman `final_error` and `stage3.error`) with
+  that code and a `failures[]` entry; partial text is never ranked or synthesized.
+- **Cost.** Mese reports `cost_usd: 0` with `cost_source: 'plan'`, so plan calls add $0 to `usage`. The UI labels
+  them "$0 (plan)" (a mixed run: "$0.0123 + $0 (plan)") from the model's billing; `council_started` members and
+  chairman and `council_snapshot` entries carry `billing` for that (llm-council additions).
+- **Plan check.** `/v1/mese/plan` reads plan models without admission or a token refresh (it never uses up Mese's
+  single trial request after a pause): an available one is `ready` with no price warning, an unavailable one is
+  `unavailable` with `reason` `no_credential`, `plan_limited` or `plan_unavailable` and a warning that says what to
+  do in Mese admin.
+- **Title.** An API-key `TITLE_MODEL` is used only when the council has an API-key cloud model; a council whose only
+  cloud models are plan-billed is titled by its chairman, so choosing the plan never adds an API charge.
+- **UI.** A "Plan" badge; the row price reads "ChatGPT plan"; the picker shows "Using ChatGPT plan · Manage usage"
+  while a member or the chair is plan-billed; a member or chairman failing with `plan_limit_exceeded` reads
+  "Usage limit reached / Review your plan or this app's limit in ChatGPT settings." with **Manage usage**
+  (`https://chatgpt.com/settings/usage`, new tab) as the primary action. `?replay=plan-limit` shows the card
+  without a backend.
+
 The sections below are a copy of Mese ARCHITECTURE §I.5–§I.7 as of 2026-10-28. If they ever disagree,
 the Mese document wins.
 
@@ -128,7 +166,9 @@ interface CouncilModel {
                est_load_s: number | null; observed_tok_s: number | null } | null;   // llm-council addition (§G.6)
   can_rank: boolean; can_chair: boolean; context_length: number | null; size_bytes: number | null;
   price_per_mtok: { input: number; output: number } | null;   // USD per 1M; null for local/unknown
-  price_verified: boolean | null; tags: string[];
+  price_verified: boolean | null;
+  billing: 'api_key' | 'chatgpt_plan' | 'local' | null;    // llm-council addition: mese.billing (see "ChatGPT plan"); null from an older Mese
+  tags: string[];
   lineage: { name: string; version: string } | null;
 }
 interface Preset {
@@ -151,8 +191,8 @@ interface ConversationCouncil { members: string[]; chairman: string; preset_id: 
 | Built-in | Members | Chairman |
 |---|---|---|
 | `builtin:all-local` | Up to 4 available `local`/`custom` models with `can_rank`: resident first, then loaded, then by `size_bytes` descending. Effective-exclusive models are appended (largest first) only to reach 2 members. | The resident local `can_chair` model with the largest `context_length` (ties: largest size); with none, the available local `can_chair` model with the largest `context_length`, ties broken by largest size. |
-| `builtin:frontier-cloud` | Available cloud models tagged `frontier`, at most 5. | The model tagged `default_chair`, else the first frontier model with `can_chair`. |
-| `builtin:hybrid` | The 2 cheapest available `frontier` cloud models, plus the 2 local models chosen by the all-local rule. | As frontier-cloud. |
+| `builtin:frontier-cloud` | Available API-key cloud models tagged `frontier`, at most 5 (never a ChatGPT-plan model). | The model tagged `default_chair`, else the first frontier model with `can_chair`; never a plan model. |
+| `builtin:hybrid` | The 2 cheapest available API-key `frontier` cloud models, plus the 2 local models chosen by the all-local rule. | As frontier-cloud. |
 
 **Last used** (`builtin:last-used`; an llm-council addition that Mese §I.5 does not describe yet):
 - It is the validated, canonical council of the most recent message a send route accepted, in any conversation. Runs that were later cancelled or failed count; sends rejected with 422/503 and a `PUT …/council` without a send do not. A failing write only logs a warning.
@@ -167,7 +207,7 @@ Every event is a `data: {"type": …}` line with camelCase fields. Existing even
 
 | Event | Status | Payload |
 |---|---|---|
-| `council_started` | new, first | `{runId, members: [{memberId, displayName, kind, providerId, nodeId, canRank}], chairman: {modelId, displayName, kind, providerId, nodeId}}` |
+| `council_started` | new, first | `{runId, members: [{memberId, displayName, kind, providerId, nodeId, canRank}], chairman: {modelId, displayName, kind, providerId, nodeId}}`; llm-council adds `billing` to each member and the chairman |
 | `member_queued` | +fields | `{memberId, displayName, kind, providerId, nodeId, canRank}` |
 | `member_status` | new | `{memberId, state: 'queued'\|'loading'\|'started'\|'retrying'\|'thinking', position?, nodeId?, attempt?, reason?}` |
 | `member_streaming` | unchanged | `{memberId, deltaText}` |
@@ -238,6 +278,7 @@ Every event is a `data: {"type": …}` line with camelCase fields. Existing even
 - `stage1` and `stage2` keep their **exact legacy shapes**. Failures go into `failures`, so `Stage1.jsx` and `Stage2.jsx` render old and new messages alike.
 - `metadata` is **now persisted**, which fixes the "Missing Metadata" gotcha in llm-council's `CLAUDE.md`.
 - `council_snapshot.members[].lineage` is `{name, version, training_run_id}` for fine-tunes, so rankings can later be analysed per fine-tune version (brief §5).
+- llm-council adds `billing` (`mese.billing`) to every `council_snapshot` member and the chairman, so a stored turn still labels its ChatGPT-plan calls "$0 (plan)" after the model leaves the catalog.
 - `stage3.cost_usd` is the chairman's cost (also on a chairman failure); `null` when unknown or the turn did not finish.
 - `status` is `complete`, `partial` (some failures), `cancelled` (the run was cancelled, §I.4 step 9) or `error` (the run crashed).
 - Storage writes are atomic: write to a temp file in the same directory, `fsync`, then `os.replace`.

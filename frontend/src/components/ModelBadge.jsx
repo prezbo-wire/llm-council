@@ -3,7 +3,8 @@ import { badgeFor } from '../council/models.js';
 import './ModelBadge.css';
 
 /**
- * `Cloud · anthropic` (blue) / `Local · spark` (green) / `FT · v3` (purple) / `Legacy` (grey).
+ * `Cloud · anthropic` (blue) / `Plan` (ChatGPT plan billing, teal) / `Local · spark` (green) / `FT · v3` (purple) /
+ * `Legacy` (grey).
  * Renders nothing while the model cannot be classified yet (catalog loading, no hint).
  */
 export default function ModelBadge({ modelId, hint = null }) {

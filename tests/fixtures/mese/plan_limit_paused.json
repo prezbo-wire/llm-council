@@ -1,0 +1,39 @@
+{
+  "description": "ChatGPT plan model refused at admission (before any byte) while Mese pauses chatgpt/* after a usage limit: HTTP 429 plan_limit_exceeded, never retryable. Captured from Mese (plan spec §6.2, §7.1).",
+  "requestId": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0b",
+  "request": {
+    "model": "chatgpt/gpt-6.1-sol",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 2+2?"
+      }
+    ],
+    "stream": true,
+    "mese": {
+      "client": "llm-council",
+      "run_id": "run_7d1e9b2c4a5f4e0b8c3d2a1f0e9d8c7b",
+      "conversation_id": "5b0c3e3a-1d2f-4c5b-9a8e-7f6d5c4b3a21",
+      "stage": "stage1",
+      "events": true
+    }
+  },
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "x-mese-request-id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0b"
+  },
+  "body": {
+    "error": {
+      "message": "ChatGPT plan usage is paused since 2026-11-17T09:00:00.000Z after a usage limit; Resume in Mese admin, or it retries after 2026-11-17T09:15:00.000Z",
+      "type": "rate_limit_error",
+      "code": "plan_limit_exceeded",
+      "param": null,
+      "mese": {
+        "request_id": "req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0b",
+        "retryable": false,
+        "phase": "admission"
+      }
+    }
+  }
+}

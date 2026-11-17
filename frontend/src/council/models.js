@@ -2,6 +2,7 @@
  * Catalog helpers for CouncilModel (§I.5) records: lookup, display names, badges and filtering.
  * Pure functions, shared by the picker, member cards, Stage tabs and the final panel.
  */
+import { MANAGE_USAGE, PLAN_NOTE, isPlanBilled } from './billing.js';
 
 /**
  * Mese's residency class for a local model (Mese ARCHITECTURE §G.6). `effective` is 'exclusive' also for a
@@ -14,12 +15,14 @@
  *   node: {id: string, name: string, runtime: string, host_id: string}|null, available: boolean,
  *   unavailable_reason: string|null, load_state: string|null, residency: Residency|null, can_rank: boolean,
  *   can_chair: boolean, context_length: number|null, size_bytes: number|null,
- *   price_per_mtok: {input: number, output: number}|null, price_verified: boolean|null, tags: string[],
+ *   price_per_mtok: {input: number, output: number}|null, price_verified: boolean|null,
+ *   billing?: 'api_key'|'chatgpt_plan'|'local'|null, tags: string[],
  *   lineage: {name: string, version: string}|null}} CouncilModel */
 
 /**
  * @typedef {{id: string, displayName: string, kind: 'cloud'|'local'|'custom'|null, providerId: string|null,
- *   nodeId: string|null, lineage: object|null, legacy: boolean, inCatalog: boolean, model: CouncilModel|null}} ModelInfo
+ *   nodeId: string|null, lineage: object|null, billing: string|null, legacy: boolean, inCatalog: boolean,
+ *   model: CouncilModel|null}} ModelInfo
  */
 
 /** @returns {Map<string, CouncilModel>} */
@@ -40,7 +43,8 @@ export function shortModelName(id) {
 
 /**
  * Indexes a persisted `council_snapshot` (§I.7) by model id, as hints for describeModel().
- * @returns {Map<string, {displayName?: string, kind?: string, providerId?: string, nodeId?: string, lineage?: object}>}
+ * @returns {Map<string, {displayName?: string, kind?: string, providerId?: string, nodeId?: string, lineage?: object,
+ *   billing?: string}>}
  */
 export function snapshotHints(snapshot) {
   const hints = new Map();
@@ -53,6 +57,7 @@ export function snapshotHints(snapshot) {
       providerId: entry.provider_id,
       nodeId: entry.node_id,
       lineage: entry.lineage,
+      billing: entry.billing,
     });
   };
   (Array.isArray(snapshot.members) ? snapshot.members : []).forEach(add);
@@ -78,6 +83,7 @@ export function describeModel(id, { index = null, hint = null } = {}) {
       providerId: model.provider ? model.provider.id : null,
       nodeId: model.node ? model.node.id : null,
       lineage: model.lineage || null,
+      billing: model.billing || (hint && hint.billing) || null,
       legacy: false,
       inCatalog: true,
       model,
@@ -91,6 +97,7 @@ export function describeModel(id, { index = null, hint = null } = {}) {
     providerId: (hint && hint.providerId) || null,
     nodeId: (hint && hint.nodeId) || null,
     lineage: (hint && hint.lineage) || null,
+    billing: (hint && hint.billing) || null,
     legacy: Boolean(index) && kind === null,
     inCatalog: false,
     model: null,
@@ -98,14 +105,17 @@ export function describeModel(id, { index = null, hint = null } = {}) {
 }
 
 /**
- * Badge for a model: `Cloud · anthropic` (blue), `Local · spark` (green), `FT · v3` (purple), `Legacy` (grey).
- * Returns null when nothing is known yet (catalog still loading and no hint).
+ * Badge for a model: `Cloud · anthropic` (blue), `Plan` (ChatGPT plan billing, teal), `Local · spark` (green),
+ * `FT · v3` (purple), `Legacy` (grey). Returns null when nothing is known yet (catalog still loading and no hint).
  * @param {ModelInfo} info
  */
 export function badgeFor(info) {
   if (!info) return null;
   if (info.legacy) {
     return { variant: 'legacy', label: 'Legacy', title: `${info.id} is not in the Mese catalog (older conversation)` };
+  }
+  if (isPlanBilled(info)) {
+    return { variant: 'plan', label: 'Plan', title: 'Billed to your ChatGPT plan: no API cost, counts toward its usage limits' };
   }
   if (info.kind === 'cloud') {
     const where = info.providerId || (info.model && info.model.provider && info.model.provider.name) || '';
@@ -125,6 +135,28 @@ export function badgeFor(info) {
     return { variant: 'local', label: info.nodeId ? `Local · ${info.nodeId}` : 'Local', title: `Local model${info.nodeId ? ` on ${info.nodeId}` : ''}` };
   }
   return null;
+}
+
+/**
+ * True when any of `ids` is billed to the ChatGPT plan, from the catalog or, for ids it lacks, the hints.
+ * @param {Iterable<string>} ids
+ * @param {{index?: Map<string, CouncilModel>|null, hints?: Map<string, object>|null}} [context]
+ */
+export function usesPlan(ids, { index = null, hints = null } = {}) {
+  for (const id of ids || []) {
+    if (typeof id === 'string' && isPlanBilled(describeModel(id, { index, hint: hints ? hints.get(id) || null : null }))) return true;
+  }
+  return false;
+}
+
+/**
+ * "Using ChatGPT plan · Manage usage" for the picker while a member or the chairman is plan-billed, else null.
+ * @returns {{text: string, action: {label: string, href: string}}|null}
+ */
+export function planUsageNote(draft, index = null) {
+  if (!draft) return null;
+  const ids = [...(Array.isArray(draft.members) ? draft.members : []), ...(draft.chairman ? [draft.chairman] : [])];
+  return usesPlan(ids, { index }) ? { text: PLAN_NOTE, action: MANAGE_USAGE } : null;
 }
 
 /** Picker filter: 'all' | 'local' (local and custom/fine-tunes) | 'cloud'. */

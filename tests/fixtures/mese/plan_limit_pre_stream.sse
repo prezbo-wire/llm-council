@@ -1,0 +1,9 @@
+: mese req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0952e0
+
+event: mese
+data: {"type":"started","attempt":1,"resolved":{"model":"chatgpt/gpt-6.1-sol","kind":"cloud","provider_id":"chatgpt","node_id":null,"host_id":null,"runtime":null,"upstream_model":"gpt-6.1-sol"}}
+
+data: {"id":"chatcmpl-req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0952e0","object":"chat.completion.chunk","created":1793000000,"model":"chatgpt/gpt-6.1-sol","choices":[{"index":0,"delta":{},"finish_reason":"error"}],"error":{"message":"ChatGPT usage limit reached; review your plan or this app's limit in ChatGPT settings (subscription_sharing_usage_limit_exceeded, HTTP 429): You've hit your usage limit. [request req_6f1c2a9b8d7e4f30]","type":"rate_limit_error","code":"plan_limit_exceeded","param":null,"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0952e0","retryable":false,"upstream_status":429}},"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"cost":0},"mese":{"request_id":"req_0192f1c0-a4b0-7c3e-8d2a-5b6c7d8e9f0952e0","status":"error","resolved":{"model":"chatgpt/gpt-6.1-sol","kind":"cloud","provider_id":"chatgpt","node_id":null,"host_id":null,"runtime":null,"upstream_model":"gpt-6.1-sol"},"cost_usd":0,"cost_source":"plan","usage_source":"none","queue_ms":0,"load_ms":0,"ttft_ms":null,"latency_ms":640,"attempts":1,"dropped_params":[],"warnings":[]}}
+
+data: [DONE]
+

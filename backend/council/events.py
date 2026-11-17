@@ -41,9 +41,13 @@ def _member_fields(info: MemberInfo) -> Dict[str, Any]:
 
 
 def council_started(run_id: str, members: List[MemberInfo], chairman: MemberInfo) -> Event:
-    return _event("council_started", runId=run_id, members=[_member_fields(m) for m in members],
+    """Members and chairman also carry ``billing`` (Mese ``mese.billing``, an llm-council addition; not on
+    ``member_queued``), so the UI labels plan-billed calls even when the catalog no longer lists the model."""
+    return _event("council_started", runId=run_id,
+                  members=[{**_member_fields(m), "billing": m.billing} for m in members],
                   chairman={"modelId": chairman.id, "displayName": chairman.display_name, "kind": chairman.kind,
-                            "providerId": chairman.provider_id, "nodeId": chairman.node_id})
+                            "providerId": chairman.provider_id, "nodeId": chairman.node_id,
+                            "billing": chairman.billing})
 
 
 def member_queued(info: MemberInfo) -> Event:

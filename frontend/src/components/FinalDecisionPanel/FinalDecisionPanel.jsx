@@ -2,7 +2,8 @@ import { useRef } from 'react';
 import Markdown from '../Markdown';
 import ModelBadge from '../ModelBadge';
 import Elapsed from '../Elapsed';
-import { useNameOf } from '../../council/CatalogContext.js';
+import ErrorAction from '../ErrorAction';
+import { useNameOf, usePlanOf } from '../../council/CatalogContext.js';
 import {
   formatCost,
   formatLatency,
@@ -55,11 +56,12 @@ export default function FinalDecisionPanel({ decision, chairman = null, onRetry 
   const nameOf = useNameOf();
   const chairId = decision.model || (chairman && chairman.modelId) || null;
   const chairHint = chairman && chairman.modelId === chairId
-    ? { displayName: chairman.displayName, kind: chairman.kind, providerId: chairman.providerId, nodeId: chairman.nodeId }
+    ? { displayName: chairman.displayName, kind: chairman.kind, providerId: chairman.providerId, nodeId: chairman.nodeId, billing: chairman.billing }
     : null;
+  const { isPlan } = usePlanOf(chairHint ? new Map([[chairId, chairHint]]) : null);
   const hasResponseContent = status === 'streaming' || status === 'ready';
   const latency = status === 'ready' ? formatLatency(latencyMs) : null;
-  const cost = status === 'ready' ? formatCost(costUsd) : null;
+  const cost = status === 'ready' ? formatCost(costUsd, { plan: Boolean(chairId) && isPlan(chairId) }) : null;
   const pending = ['generating', 'queued', 'loading', 'retrying', 'thinking'].includes(status);
 
   const handleExportPdf = () => {
@@ -137,17 +139,19 @@ export default function FinalDecisionPanel({ decision, chairman = null, onRetry 
   );
 }
 
+/** The chairman's failure; a ChatGPT usage limit gets "Manage usage" as its primary action. */
 function FinalError({ error, content, onRetry }) {
   const { title, detail, code } = humanizeError(error?.code, error?.message || 'Failed to generate final decision');
   return (
     <div className="error-state">
       <div className="error-icon">!</div>
       <p className="error-message">The chairman could not synthesize a final answer</p>
-      <p className="error-reason">
+      <p className="error-reason" title={error?.message || undefined}>
         {title}
         {detail && <span className="error-reason-detail">{detail}</span>}
         {code && <span className="error-reason-code">{code}</span>}
       </p>
+      <ErrorAction code={code} />
       {onRetry && (
         <button className="retry-button" type="button" onClick={onRetry}>
           Retry

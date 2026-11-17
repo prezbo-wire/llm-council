@@ -33,7 +33,7 @@ export function createRunState() {
     runId: null,
     members: {},
     memberOrder: [],
-    chairman: null, // {modelId, displayName, kind, providerId, nodeId}
+    chairman: null, // {modelId, displayName, kind, providerId, nodeId, billing?}
     stage1: null,
     stage2: {
       status: 'idle', // idle | running | skipped | complete
@@ -73,7 +73,7 @@ function pickDefined(source, keys) {
   return out;
 }
 
-const MEMBER_INFO_KEYS = ['displayName', 'kind', 'providerId', 'nodeId', 'canRank'];
+const MEMBER_INFO_KEYS = ['displayName', 'kind', 'providerId', 'nodeId', 'canRank', 'billing'];
 
 function newMember(memberId, info = {}) {
   return {

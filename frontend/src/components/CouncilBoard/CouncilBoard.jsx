@@ -1,11 +1,16 @@
 import CouncilMemberCard from './CouncilMemberCard';
 import { ModelLabel } from '../ModelBadge';
+import { usePlanOf } from '../../council/CatalogContext.js';
 import { memberList, runCostUsd } from '../../councilEvents.js';
 import { formatCost, formatTokens } from '../../council/format.js';
 import './CouncilBoard.css';
 
+/** Run total; "$0 (plan)" for the part billed to the ChatGPT plan. */
 function RunSummary({ run }) {
-  const cost = formatCost(runCostUsd(run));
+  const hints = new Map(memberList(run).map((m) => [m.memberId, m]));
+  if (run.chairman) hints.set(run.chairman.modelId, run.chairman);
+  const { anyPlan } = usePlanOf(hints);
+  const cost = formatCost(runCostUsd(run), { plan: anyPlan([...hints.keys()]) });
   const summary = run.summary;
   const tokens = summary && summary.tokens ? (summary.tokens.prompt ?? 0) + (summary.tokens.completion ?? 0) : null;
   const parts = [];
@@ -36,7 +41,7 @@ export default function CouncilBoard({ run }) {
           <span className="board-chair-label">Chair</span>
           <ModelLabel
             modelId={chair.modelId}
-            hint={{ displayName: chair.displayName, kind: chair.kind, providerId: chair.providerId, nodeId: chair.nodeId }}
+            hint={{ displayName: chair.displayName, kind: chair.kind, providerId: chair.providerId, nodeId: chair.nodeId, billing: chair.billing }}
           />
         </div>
       )}

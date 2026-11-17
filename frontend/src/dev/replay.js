@@ -5,18 +5,42 @@
  * checked without a backend or Mese.
  *
  * Query parameters:
- *   replay=<fixture>      fixture to replay on Send (default hybrid-success)
+ *   replay=<fixture>      fixture to replay on Send (default hybrid-success); `plan-limit` is derived here from
+ *                         member-failure: the ChatGPT plan model fails with plan_limit_exceeded
  *   speed=<ms>            base delay between events (default 300)
  *   mese=ok|down|locked   Mese state for the status pill and the catalog (default ok)
  * At runtime: `window.__councilReplay.setMese('down')`, then "Refresh" in the Mese popover.
  */
 import { ApiError } from '../api.js';
 import { buildAssistantMessage, reduceCouncilEvents } from '../councilEvents.js';
+import { isPlanBilled } from '../council/billing.js';
 import { LAST_USED_PRESET_ID, sameCouncil } from '../council/draft.js';
 import { LEGACY_CONVERSATIONS, REPLAY_ADMIN_URL, REPLAY_CATALOG, replayHealth } from './replayData.js';
 
 const modules = import.meta.glob('./fixtures/*.json', { eager: true, import: 'default' });
-export const REPLAY_FIXTURES = Object.fromEntries(Object.values(modules).map((fixture) => [fixture.name, fixture]));
+const WP0_FIXTURES = Object.fromEntries(Object.values(modules).map((fixture) => [fixture.name, fixture]));
+
+/** member-failure with its failing member (Grok, circuit open) swapped for the ChatGPT plan model at its limit. */
+function planLimitFixture(base) {
+  if (!base) return null;
+  const [from, to] = ['xai/grok-4.7', 'chatgpt/gpt-6.1-sol'];
+  const message = 'ChatGPT plan usage limit reached; Mese pauses chatgpt/* until it is resumed (request id req_replay)';
+  const fixture = JSON.parse(JSON.stringify(base).replaceAll(from, to).replaceAll('"Grok 4.7"', '"GPT-6.1 Sol (ChatGPT plan)"')
+    .replaceAll('"providerId":"xai"', '"providerId":"chatgpt"'));
+  for (const event of fixture.events) {
+    if (event.type === 'council_started') {
+      for (const member of event.members) if (member.memberId === to) member.billing = 'chatgpt_plan';
+    }
+    if (event.type === 'member_error' && event.memberId === to) Object.assign(event, { code: 'plan_limit_exceeded', message, retryable: false });
+    if (event.type === 'run_summary') {
+      event.failures = event.failures.map((f) => (f.model === to ? { ...f, code: 'plan_limit_exceeded', message } : f));
+    }
+  }
+  return { ...fixture, name: 'plan-limit', description: 'A ChatGPT-plan member hits its usage limit (Manage usage card)' };
+}
+
+const PLAN_LIMIT = planLimitFixture(WP0_FIXTURES['member-failure']);
+export const REPLAY_FIXTURES = PLAN_LIMIT ? { ...WP0_FIXTURES, [PLAN_LIMIT.name]: PLAN_LIMIT } : WP0_FIXTURES;
 
 const QUESTION = 'Should I use SQLite or PostgreSQL for a single-user app?';
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -45,9 +69,11 @@ function allLocalPick(catalog) {
   return { members: picked.map((m) => m.id), chairman: chair ? chair.id : null };
 }
 
+/** API-key frontier models only: built-ins never pick a ChatGPT-plan model (backend/presets.py "Billing"). */
 function frontierPick(catalog) {
-  const frontier = catalog.filter((m) => m.available && m.kind === 'cloud' && m.tags.includes('frontier'));
-  const chair = catalog.find((m) => m.available && m.tags.includes('default_chair')) || frontier.find((m) => m.can_chair);
+  const apiKey = catalog.filter((m) => m.available && !isPlanBilled(m));
+  const frontier = apiKey.filter((m) => m.kind === 'cloud' && m.tags.includes('frontier'));
+  const chair = apiKey.find((m) => m.tags.includes('default_chair')) || frontier.find((m) => m.can_chair);
   return { frontier, chairman: chair ? chair.id : null };
 }
 

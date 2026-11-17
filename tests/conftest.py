@@ -31,7 +31,9 @@ MESE_FIXTURES = FIXTURES / "mese"
 CONVERSATION_FIXTURES = FIXTURES / "conversations"
 FRONTEND_FIXTURES = Path(__file__).parent.parent / "frontend" / "src" / "dev" / "fixtures"
 
-CLOUD_PROVIDER_IDS = {"anthropic", "openai", "google", "xai", "deepseek", "moonshot", "zai", "minimax", "mistral", "cohere"}
+CLOUD_PROVIDER_IDS = {"anthropic", "openai", "google", "xai", "deepseek", "moonshot", "zai", "minimax", "mistral", "cohere", "chatgpt"}
+#: Providers billed to the user's ChatGPT plan (Mese ``chatgpt_responses``): $0 with ``cost_source`` 'plan'.
+PLAN_PROVIDER_IDS = {"chatgpt"}
 TEST_MESE_URL = "http://127.0.0.1:8790"
 TEST_MESE_TOKEN = "mese_ck_" + "test-token-not-a-real-key".ljust(43, "x")
 
@@ -145,6 +147,7 @@ def build_mese_sse(
     """Synthesizes a Mese stream for any model, following the golden format (Mese manifest meseOutputRules).
 
     ``error`` (for finish_reason "error") is a V1ErrorObject-like dict: {code, message, retryable?}.
+    A ``chatgpt/*`` model is a plan-billed cloud model: its summary says ``cost_source`` 'plan' (Mese spec §7.2).
     """
     prefix, upstream = model.split("/", 1)
     kind = "cloud" if prefix in CLOUD_PROVIDER_IDS else ("custom" if prefix == "ft" else "local")
@@ -177,7 +180,8 @@ def build_mese_sse(
         status = "error"
     finish["usage"] = usage
     finish["mese"] = {"request_id": request_id, "status": status, "resolved": resolved, "cost_usd": cost_usd,
-                      "cost_source": "unknown" if cost_usd is None else ("local" if kind == "local" else "computed"),
+                      "cost_source": ("plan" if prefix in PLAN_PROVIDER_IDS else "unknown" if cost_usd is None
+                                      else "local" if kind == "local" else "computed"),
                       "usage_source": "upstream", "queue_ms": 0, "load_ms": 0, "ttft_ms": 100, "latency_ms": 1000, "attempts": 1,
                       "dropped_params": [], "warnings": warnings or []}
     out.append(f"data: {dump(finish)}\n\n")

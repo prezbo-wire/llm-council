@@ -67,6 +67,7 @@
 }
 
 .chip-cloud .chip-dot { background: #4a90e2; }
+.chip-plan .chip-dot { background: #0b7a5c; }
 .chip-local .chip-dot { background: #27ae60; }
 .chip-ft .chip-dot { background: #8e44ad; }
 .chip-legacy .chip-dot { background: #aaa; }
@@ -171,6 +172,16 @@
 
 .picker-warning.plan-cpu_offload {
   color: #c0392b;
+  font-weight: 500;
+}
+
+/* "Using ChatGPT plan · Manage usage" while a plan-billed model is in the council. */
+.picker-plan {
+  color: #0b7a5c;
+}
+
+.picker-plan a {
+  color: #0b7a5c;
   font-weight: 500;
 }
 

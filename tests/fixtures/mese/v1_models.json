@@ -45,6 +45,7 @@
         ],
         "verified": true,
         "price_verified": true,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -91,6 +92,7 @@
         ],
         "verified": true,
         "price_verified": true,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -136,6 +138,7 @@
         ],
         "verified": true,
         "price_verified": true,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -182,6 +185,7 @@
         "aliases": [],
         "verified": false,
         "price_verified": false,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -228,6 +232,7 @@
         "aliases": [],
         "verified": false,
         "price_verified": false,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -274,6 +279,7 @@
         "aliases": [],
         "verified": false,
         "price_verified": false,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -316,6 +322,7 @@
         "aliases": [],
         "verified": false,
         "price_verified": false,
+        "billing": "api_key",
         "source": "seed"
       }
     },
@@ -369,6 +376,7 @@
         "aliases": [],
         "verified": true,
         "price_verified": null,
+        "billing": "local",
         "source": "user"
       }
     },
@@ -424,6 +432,7 @@
         "aliases": [],
         "verified": true,
         "price_verified": null,
+        "billing": "local",
         "source": "user"
       }
     },
@@ -477,6 +486,7 @@
         "aliases": [],
         "verified": true,
         "price_verified": null,
+        "billing": "local",
         "source": "discovered"
       }
     },
@@ -523,6 +533,7 @@
         "aliases": [],
         "verified": true,
         "price_verified": null,
+        "billing": "local",
         "source": "discovered"
       }
     },
@@ -585,7 +596,51 @@
         "aliases": [],
         "verified": true,
         "price_verified": null,
+        "billing": "local",
         "source": "user"
+      }
+    },
+    {
+      "id": "chatgpt/gpt-6.1-sol",
+      "object": "model",
+      "created": 0,
+      "owned_by": "chatgpt",
+      "name": "GPT-6.1 Sol (ChatGPT plan)",
+      "context_length": 500000,
+      "pricing": {
+        "prompt": "0",
+        "completion": "0"
+      },
+      "supported_parameters": [
+        "reasoning_effort"
+      ],
+      "mese": {
+        "kind": "cloud",
+        "display_name": "GPT-6.1 Sol (ChatGPT plan)",
+        "provider": {
+          "id": "chatgpt",
+          "name": "ChatGPT plan"
+        },
+        "node": null,
+        "upstream_model": "gpt-6.1-sol",
+        "available": false,
+        "unavailable_reason": "plan_limited",
+        "load_state": null,
+        "residency": null,
+        "size_bytes": null,
+        "can_rank": true,
+        "can_chair": true,
+        "tags": [
+          "frontier",
+          "plan"
+        ],
+        "hf_id": null,
+        "lineage": null,
+        "aliases": [],
+        "verified": true,
+        "price_verified": null,
+        "billing": "chatgpt_plan",
+        "source": "seed"
       }
     }
   ]

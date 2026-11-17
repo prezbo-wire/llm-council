@@ -18,6 +18,13 @@
   border-color: #d0e7ff;
 }
 
+/* Billed to the user's ChatGPT plan (Mese billing chatgpt_plan): no API cost, counts toward the plan's limits. */
+.model-badge-plan {
+  background: #e6f6f1;
+  color: #0b7a5c;
+  border-color: #bfe6d8;
+}
+
 .model-badge-local {
   background: #e8f8ef;
   color: #1e8c4d;

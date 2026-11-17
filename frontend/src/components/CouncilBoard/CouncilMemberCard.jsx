@@ -1,6 +1,8 @@
 import Markdown from '../Markdown';
 import ModelBadge from '../ModelBadge';
 import Elapsed from '../Elapsed';
+import ErrorAction from '../ErrorAction';
+import { isPlanBilled } from '../../council/billing.js';
 import { useModelInfo } from '../../council/CatalogContext.js';
 import {
   formatLatency,
@@ -81,16 +83,18 @@ function PendingBody({ member }) {
   );
 }
 
+/** The failure; a ChatGPT usage limit reads "Usage limit reached" with "Manage usage" as its primary action. */
 function ErrorBody({ member }) {
   const { title, detail, code } = humanizeError(member.error?.code, member.error?.message);
   return (
     <>
       <div className="error-content">
         <span className="error-icon">!</span>
-        <div className="error-text">
+        <div className="error-text" title={member.error?.message || undefined}>
           <span className="error-message">{title}</span>
           {detail && <span className="error-detail">{detail}</span>}
           {code && <span className="error-code">{code}</span>}
+          <ErrorAction code={code} />
         </div>
       </div>
       {member.progressText && (
@@ -102,10 +106,10 @@ function ErrorBody({ member }) {
   );
 }
 
-function CardFooter({ member }) {
+function CardFooter({ member, plan }) {
   const latency = formatLatency(member.latencyMs);
   const ttft = formatLatency(member.ttftMs);
-  const usage = formatUsageFooter({ costUsd: member.costUsd, usage: member.usage });
+  const usage = formatUsageFooter({ costUsd: member.costUsd, usage: member.usage, plan });
   if (!latency && !usage) return null;
   const usageTitle = member.usage
     ? `prompt ${member.usage.promptTokens ?? 0} · completion ${member.usage.completionTokens ?? 0} · reasoning ${member.usage.reasoningTokens ?? 0} tokens`
@@ -129,7 +133,9 @@ function CardFooter({ member }) {
 
 export default function CouncilMemberCard({ member }) {
   const { memberId, status, progressText } = member;
-  const hint = { displayName: member.displayName, kind: member.kind, providerId: member.providerId, nodeId: member.nodeId };
+  const hint = {
+    displayName: member.displayName, kind: member.kind, providerId: member.providerId, nodeId: member.nodeId, billing: member.billing,
+  };
   const info = useModelInfo(memberId, hint);
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.idle;
   const pending = ['queued', 'loading', 'started', 'retrying', 'thinking'].includes(status);
@@ -172,7 +178,7 @@ export default function CouncilMemberCard({ member }) {
         {status === 'error' && <ErrorBody member={member} />}
       </div>
 
-      {status === 'done' && <CardFooter member={member} />}
+      {status === 'done' && <CardFooter member={member} plan={isPlanBilled(info)} />}
     </div>
   );
 }

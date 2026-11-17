@@ -261,6 +261,88 @@
         }
       ]
     },
+    "plan_limit_pre_stream.sse": {
+      "model": "chatgpt/gpt-6.1-sol",
+      "ok": false,
+      "content": "",
+      "deltas": [],
+      "finish_reason": "error",
+      "error_code": "plan_limit_exceeded",
+      "error_message": "ChatGPT usage limit reached; review your plan or this app's limit in ChatGPT settings (subscription_sharing_usage_limit_exceeded, HTTP 429): You've hit your usage limit. [request req_6f1c2a9b8d7e4f30]",
+      "retryable": false,
+      "cost_usd": 0,
+      "ttft_ms": null,
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0
+      },
+      "warnings": [],
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        }
+      ],
+      "resolved": {
+        "model": "chatgpt/gpt-6.1-sol",
+        "kind": "cloud",
+        "provider_id": "chatgpt",
+        "node_id": null,
+        "host_id": null,
+        "runtime": null,
+        "upstream_model": "gpt-6.1-sol"
+      }
+    },
+    "plan_limit_midstream.sse": {
+      "model": "chatgpt/gpt-6.1-sol",
+      "ok": false,
+      "content": "Some text before the limit",
+      "deltas": [
+        "Some text before the limit"
+      ],
+      "finish_reason": "error",
+      "error_code": "plan_limit_exceeded",
+      "error_message": "ChatGPT usage limit reached; review your plan or this app's limit in ChatGPT settings (subscription_sharing_usage_limit_exceeded): Usage limit reached.",
+      "retryable": false,
+      "cost_usd": 0,
+      "ttft_ms": 1800,
+      "usage": {
+        "prompt_tokens": 3,
+        "completion_tokens": 7,
+        "reasoning_tokens": 0
+      },
+      "warnings": [
+        "usage_estimated"
+      ],
+      "statuses": [
+        {
+          "state": "started",
+          "attempt": 1
+        }
+      ],
+      "resolved": {
+        "model": "chatgpt/gpt-6.1-sol",
+        "kind": "cloud",
+        "provider_id": "chatgpt",
+        "node_id": null,
+        "host_id": null,
+        "runtime": null,
+        "upstream_model": "gpt-6.1-sol"
+      }
+    },
+    "plan_limit_paused.json": {
+      "model": "chatgpt/gpt-6.1-sol",
+      "ok": false,
+      "content": "",
+      "deltas": [],
+      "finish_reason": null,
+      "error_code": "plan_limit_exceeded",
+      "error_message": "ChatGPT plan usage is paused since 2026-11-17T09:00:00.000Z after a usage limit; Resume in Mese admin, or it retries after 2026-11-17T09:15:00.000Z",
+      "retryable": false,
+      "cost_usd": null,
+      "statuses": []
+    },
     "<connect error>": {
       "model": "any/model",
       "ok": false,

@@ -1,5 +1,6 @@
 import { ModelLabel } from '../ModelBadge';
 import Elapsed from '../Elapsed';
+import ErrorAction from '../ErrorAction';
 import { useNameOf } from '../../council/CatalogContext.js';
 import { humanizeError, loadingText, queuedText, retryText } from '../../council/format.js';
 import { rankingSummary } from '../../council/rankings.js';
@@ -35,7 +36,12 @@ function RankerStatus({ ranker, labelToModel, nameOf }) {
     }
     case 'failed': {
       const { title, detail } = humanizeError(ranker.error?.code, ranker.error?.message);
-      return <span title={detail || undefined}>Failed · {title}</span>;
+      return (
+        <span title={detail || undefined}>
+          Failed · {title}
+          <ErrorAction code={ranker.error?.code} compact />
+        </span>
+      );
     }
     case 'skipped':
       return <span>{ranker.reason === 'context' ? 'Skipped · context too small for the ranking prompt' : 'Skipped'}</span>;
@@ -52,7 +58,7 @@ export default function RankerRows({ rankers, members, labelToModel = null }) {
     <ul className="ranker-rows">
       {rankers.map((ranker) => {
         const m = members ? members[ranker.memberId] : null;
-        const hint = m ? { displayName: m.displayName, kind: m.kind, providerId: m.providerId, nodeId: m.nodeId } : null;
+        const hint = m ? { displayName: m.displayName, kind: m.kind, providerId: m.providerId, nodeId: m.nodeId, billing: m.billing } : null;
         const tone = ROW_TONE[ranker.status] || 'pending';
         return (
           <li key={ranker.memberId} className={`ranker-row ranker-${tone}`}>

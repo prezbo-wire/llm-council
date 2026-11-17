@@ -14,17 +14,25 @@ Built-in                   Members                                              
                            to reach 2 members (largest first)                    size), else any available
                                                                                  local ``can_chair`` model
                                                                                  by the same rule
-``builtin:frontier-cloud`` available cloud models tagged ``frontier`` (max 5)    the ``default_chair`` model,
-                                                                                 else the first frontier
+``builtin:frontier-cloud`` available API-key cloud models tagged ``frontier``    the ``default_chair`` model,
+                           (max 5)                                               else the first frontier
                                                                                  model with ``can_chair``
-``builtin:hybrid``         the 2 cheapest available frontier cloud models plus   as frontier-cloud
-                           the first 2 of the all-local selection
+``builtin:hybrid``         the 2 cheapest available API-key frontier cloud       as frontier-cloud
+                           models plus the first 2 of the all-local selection
 =========================  ====================================================  ==========================
 
 Residency is Mese's effective class (``CouncilModel.residency``, Mese ARCHITECTURE §G.6): resident models stay
 loaded, so an all-local council of residents swaps no model in or out. A model with no residency data (an older
 Mese) counts as on_demand, which gives exactly the v1 selection. A big exclusive chair is a user preset or a
 manual pick, never a built-in.
+
+**Billing.** The built-ins never pick a model billed to the user's ChatGPT plan (``chatgpt/*``, Mese ``billing``
+``chatgpt_plan``), even one tagged ``frontier`` or ``default_chair``. A built-in is re-resolved on every request, so
+including plan models would make the same preset switch between plan usage and API-key billing whenever ChatGPT is
+connected, paused at a usage limit or resumed (and Hybrid's "cheapest" rule would always pick the $0 plan model).
+Plan models join a council only when picked by hand or saved in a user preset, and no preset ever substitutes
+``openai/gpt-6.1-sol`` for ``chatgpt/gpt-6.1-sol`` or the reverse: ids are kept as stored, and alias resolution
+never crosses billing (:class:`backend.catalog.CatalogIndex`).
 
 ``builtin:last-used`` ("Last used", listed first) is the council of the most recent message a send route
 accepted, kept in ``<data_dir>/last_council.json`` by :class:`LastUsedStore`. It is a moving pointer, so it
@@ -40,7 +48,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .catalog import LOCAL_KINDS, CatalogIndex
+from .catalog import LOCAL_KINDS, CatalogIndex, is_plan_billed
 from .schemas import (BUILTIN_PRESET_IDS, MAX_MEMBERS, PRESET_REF_PATTERN, CouncilModel, Preset, is_model_id,
                       is_user_preset_id)
 from .storage import atomic_write_json, utc_now_iso
@@ -62,8 +70,9 @@ HYBRID_LOCAL = 2
 _BUILTIN_META = {
     "builtin:all-local": ("All local", "Local models only, resident ones first: nothing leaves your machines and "
                                        "runs cost $0."),
-    "builtin:frontier-cloud": ("Frontier cloud", "The available frontier cloud models; the default chair leads."),
-    "builtin:hybrid": ("Hybrid", "The two cheapest frontier cloud models plus two local models."),
+    "builtin:frontier-cloud": ("Frontier cloud", "The available frontier cloud models on API keys (never your "
+                                                 "ChatGPT plan); the default chair leads."),
+    "builtin:hybrid": ("Hybrid", "The two cheapest frontier cloud models on API keys plus two local models."),
 }
 assert tuple(_BUILTIN_META) == BUILTIN_PRESET_IDS
 
@@ -127,8 +136,17 @@ def select_local_chair(models: List[CouncilModel]) -> Optional[str]:
     return best["id"]
 
 
+def _plan(model: CouncilModel) -> bool:
+    """Billed to the ChatGPT plan: built-ins never pick such a model (see Billing above)."""
+    return is_plan_billed(model["id"], model.get("billing"))
+
+
+def _api_key_cloud(models: List[CouncilModel]) -> List[CouncilModel]:
+    return [m for m in _available(models) if m["kind"] == "cloud" and not _plan(m)]
+
+
 def _frontier(models: List[CouncilModel]) -> List[CouncilModel]:
-    return [m for m in _available(models) if m["kind"] == "cloud" and "frontier" in m["tags"]]
+    return [m for m in _api_key_cloud(models) if "frontier" in m["tags"]]
 
 
 def select_frontier_members(models: List[CouncilModel], limit: int = FRONTIER_MAX) -> List[str]:
@@ -136,9 +154,10 @@ def select_frontier_members(models: List[CouncilModel], limit: int = FRONTIER_MA
 
 
 def select_cloud_chair(models: List[CouncilModel]) -> Optional[str]:
-    """The available ``default_chair`` model, else the first available frontier model with ``can_chair``."""
+    """The available ``default_chair`` model, else the first available frontier model with ``can_chair``; never a
+    ChatGPT-plan model."""
     for model in _available(models):
-        if "default_chair" in model["tags"] and model["can_chair"]:
+        if "default_chair" in model["tags"] and model["can_chair"] and not _plan(model):
             return model["id"]
     return next((m["id"] for m in _frontier(models) if m["can_chair"]), None)
 

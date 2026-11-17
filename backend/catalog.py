@@ -7,6 +7,11 @@ for runs and snapshots, and performs the semantic council checks:
 - a chairman without ``can_chair`` → 422 ``{"code": "chairman_cannot_chair"}``;
 - unavailable ids are allowed (they fail fast at run time with an explicit ``member_error``).
 
+Billing (Mese ``mese.billing``): ``chatgpt/*`` models are billed to the user's own ChatGPT plan, everything else
+to a provider API key or to own hardware. No id ever resolves across that line: an alias whose two ends differ in
+billing is ignored (Mese rejects such aliases too), so a plan model is never swapped for its API-key twin
+(``chatgpt/gpt-6.1-sol`` vs ``openai/gpt-6.1-sol``) or the reverse.
+
 Mese being down surfaces as :class:`backend.mese_client.MeseError` (mapped to 503 by the API).
 """
 from __future__ import annotations
@@ -17,11 +22,14 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Iterable, List, Optional
 
 from .config import LEGACY_DISPLAY_NAMES
-from .schemas import CouncilModel, Residency
+from .schemas import BILLING_VALUES, CouncilModel, Residency
 
 LOCAL_KINDS = ("local", "custom")
 #: Mese residency classes (Mese ARCHITECTURE §G.6); anything else is treated as "no residency data".
 RESIDENCY_CLASSES = ("on_demand", "resident", "exclusive")
+#: ``mese.billing`` of a model billed to the user's ChatGPT plan; such models are exactly the ``chatgpt/*`` ids.
+PLAN_BILLING = "chatgpt_plan"
+PLAN_ID_PREFIX = "chatgpt/"
 
 
 class CouncilValidationError(Exception):
@@ -58,6 +66,11 @@ class MemberInfo:
     context_length: Optional[int]
     lineage: Optional[Dict[str, Any]]
     in_catalog: bool = True
+    billing: Optional[str] = None  # mese.billing; None for an older Mese
+
+    @property
+    def is_plan(self) -> bool:
+        return is_plan_billed(self.id, self.billing)
 
     @property
     def is_local(self) -> bool:
@@ -71,6 +84,7 @@ class MemberInfo:
         if not chairman:
             entry["can_rank"] = self.can_rank
             entry["lineage"] = self.lineage
+        entry["billing"] = self.billing
         return entry
 
 
@@ -96,6 +110,20 @@ def price_per_mtok(model: Dict[str, Any]) -> Optional[Dict[str, float]]:
     if prompt is None or completion is None:
         return None
     return {"input": prompt, "output": completion}
+
+
+def project_billing(value: Any) -> Optional[str]:
+    """``mese.billing`` when it is a known value (``api_key`` / ``chatgpt_plan`` / ``local``), else None."""
+    return value if value in BILLING_VALUES else None
+
+
+def is_plan_billed(model_id: str, billing: Optional[str]) -> bool:
+    """True for a model billed to the ChatGPT plan. ``billing`` decides when Mese sent one; without it (an older
+    Mese, an id that left the catalog) the ``chatgpt/`` prefix does, as plan models are exactly those ids.
+    """
+    if billing is not None:
+        return billing == PLAN_BILLING
+    return model_id.startswith(PLAN_ID_PREFIX)
 
 
 def _non_negative(value: Any) -> Optional[float]:
@@ -142,6 +170,7 @@ def project_model(model: Dict[str, Any]) -> CouncilModel:
         "size_bytes": mese.get("size_bytes"),
         "price_per_mtok": price_per_mtok(model),
         "price_verified": mese.get("price_verified"),
+        "billing": project_billing(mese.get("billing")),
         "tags": [t for t in (mese.get("tags") or []) if isinstance(t, str)],
         "lineage": {"name": lineage.get("name"), "version": lineage.get("version")} if lineage else None,
     }
@@ -159,11 +188,13 @@ class CatalogIndex:
                 continue
             self._raw[model["id"]] = model
             self.models.append(project_model(model))
-        for model_id, model in self._raw.items():
-            for alias in (model.get("mese") or {}).get("aliases") or []:
-                if isinstance(alias, str) and alias not in self._raw:
-                    self._aliases.setdefault(alias, model_id)
         self._by_id: Dict[str, CouncilModel] = {m["id"]: m for m in self.models}
+        for model_id, model in self._raw.items():
+            plan = is_plan_billed(model_id, self._by_id[model_id]["billing"])
+            for alias in (model.get("mese") or {}).get("aliases") or []:
+                # An alias never crosses billing: it would switch a plan model to an API key or the reverse.
+                if isinstance(alias, str) and alias not in self._raw and alias.startswith(PLAN_ID_PREFIX) == plan:
+                    self._aliases.setdefault(alias, model_id)
 
     def canonical(self, model_id: str) -> Optional[str]:
         """The catalog id for ``model_id`` (an id or an alias), or None when unknown."""
@@ -183,7 +214,8 @@ class CatalogIndex:
             return MemberInfo(id=model_id, display_name=LEGACY_DISPLAY_NAMES.get(model_id, rest or model_id),
                               kind="cloud", provider_id=prefix or None, node_id=None, upstream_model=rest or model_id,
                               can_rank=not model_id.startswith("ft/"), can_chair=False, context_length=None,
-                              lineage=None, in_catalog=False)
+                              lineage=None, in_catalog=False,
+                              billing=PLAN_BILLING if model_id.startswith(PLAN_ID_PREFIX) else None)
         raw = self._raw[canonical]
         projected = self._by_id[canonical]
         mese = raw.get("mese") if isinstance(raw.get("mese"), dict) else {}
@@ -196,6 +228,7 @@ class CatalogIndex:
             context_length=projected["context_length"] if isinstance(projected["context_length"], int) else None,
             lineage=({"name": lineage.get("name"), "version": lineage.get("version"),
                       "training_run_id": lineage.get("training_run_id")} if lineage else None),
+            billing=projected["billing"],
         )
 
     def is_available(self, model_id: str) -> bool:

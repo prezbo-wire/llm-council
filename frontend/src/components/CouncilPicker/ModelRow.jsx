@@ -22,7 +22,7 @@ export default function ModelRow({
   const price = formatModelPrice(model);
   const dot = loadDotFor(model);
   const residency = residencyHintFor(model, { cpuOffload });
-  const unavailable = model.available ? null : unavailableText(model.unavailable_reason);
+  const unavailable = model.available ? null : unavailableText(model.unavailable_reason, model);
   const checkboxId = `council-member-${model.id}`;
   const memberDisabled = !isMember && memberLimitReached;
 

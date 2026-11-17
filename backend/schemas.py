@@ -7,7 +7,7 @@ Compatible with Python 3.10.
 from __future__ import annotations
 
 import re
-from typing import Annotated, List, Optional, TypedDict
+from typing import Annotated, List, Literal, Optional, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -133,6 +133,12 @@ class Residency(TypedDict):
     observed_tok_s: Optional[float]  # recent solo decode rate; None until Mese has measured it
 
 
+#: Who pays for a model (Mese ``mese.billing``, ARCHITECTURE §F.3): a provider API key (USD, priced), the user's own
+#: ChatGPT plan (``chatgpt/*`` models: no USD cost, counts toward the plan's usage limits), or own hardware.
+Billing = Literal["api_key", "chatgpt_plan", "local"]
+BILLING_VALUES = ("api_key", "chatgpt_plan", "local")
+
+
 class CouncilModel(TypedDict):
     """V1Model projected for the picker (GET /api/models)."""
 
@@ -151,6 +157,7 @@ class CouncilModel(TypedDict):
     size_bytes: Optional[int]
     price_per_mtok: Optional[PricePerMtok]  # USD per 1M; None for local/unknown
     price_verified: Optional[bool]
+    billing: Optional[Billing]  # Mese's mese.billing; None from an older Mese (or an unknown value)
     tags: List[str]
     lineage: Optional[LineageRef]
 

@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import Markdown from './Markdown';
 import ModelBadge from './ModelBadge';
-import { useNameOf } from '../council/CatalogContext.js';
+import ErrorAction from './ErrorAction';
+import { useNameOf, usePlanOf } from '../council/CatalogContext.js';
 import { chairmanCostUsd, formatCost, formatLatency, humanizeError } from '../council/format.js';
 import { exportChairmanPdf } from '../exportChairmanPdf.js';
 import './Stage3.css';
@@ -23,6 +24,7 @@ function stage3Error(finalResponse) {
 export default function Stage3({ finalResponse, hints = null, usage = null }) {
   const responseRef = useRef(null);
   const nameOf = useNameOf(hints);
+  const { isPlan } = usePlanOf(hints);
 
   if (!finalResponse) {
     return null;
@@ -44,11 +46,12 @@ export default function Stage3({ finalResponse, hints = null, usage = null }) {
             </div>
           )}
           <div className="stage3-error-title">No final answer</div>
-          <div className="stage3-error-reason">
+          <div className="stage3-error-reason" title={error.message || undefined}>
             {title}
             {detail && <span className="stage3-error-detail"> · {detail}</span>}
             {code && <span className="stage3-error-code">{code}</span>}
           </div>
+          <ErrorAction code={code} />
         </div>
       </div>
     );
@@ -61,7 +64,7 @@ export default function Stage3({ finalResponse, hints = null, usage = null }) {
       chairmanName: chairName,
     });
   };
-  const cost = formatCost(chairmanCostUsd(finalResponse, usage));
+  const cost = formatCost(chairmanCostUsd(finalResponse, usage), { plan: Boolean(chairId) && isPlan(chairId) });
   const meta = [formatLatency(finalResponse.latency_ms), cost].filter(Boolean).join(' · ');
 
   return (

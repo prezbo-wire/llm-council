@@ -252,7 +252,7 @@ async def test_models_projection_and_no_token(api, mock):
     assert (ft["kind"], ft["price_per_mtok"], ft["lineage"], ft["can_rank"]) == ("custom", None, {"name": "legal-qwen", "version": "v3"}, False)
     assert set(opus) == {"id", "name", "kind", "provider", "node", "available", "unavailable_reason", "load_state",
                          "residency", "can_rank", "can_chair", "context_length", "size_bytes", "price_per_mtok",
-                         "price_verified", "tags", "lineage"}
+                         "price_verified", "billing", "tags", "lineage"}
 
 
 async def test_health_reports_status_without_the_token(api, mock):

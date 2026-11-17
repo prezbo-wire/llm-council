@@ -105,6 +105,10 @@
   color: #1e8c4d;
 }
 
+.model-row-price.price-plan {
+  color: #0b7a5c;
+}
+
 .model-row-price.price-unverified {
   color: #999;
   font-style: italic;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Markdown from './Markdown';
 import { ModelLabel } from './ModelBadge';
-import { useNameOf } from '../council/CatalogContext.js';
+import { useNameOf, usePlanOf } from '../council/CatalogContext.js';
 import { formatCost, formatLatency } from '../council/format.js';
 import './Stage1.css';
 
@@ -9,13 +9,15 @@ import './Stage1.css';
 export default function Stage1({ responses, hints = null }) {
   const [activeTab, setActiveTab] = useState(0);
   const nameOf = useNameOf(hints);
+  const { isPlan } = usePlanOf(hints);
 
   if (!responses || responses.length === 0) {
     return null;
   }
   const tab = Math.min(activeTab, responses.length - 1);
   const current = responses[tab];
-  const meta = [formatLatency(current.latency_ms), formatCost(current.cost_usd)].filter(Boolean).join(' · ');
+  const cost = formatCost(current.cost_usd, { plan: isPlan(current.model) });
+  const meta = [formatLatency(current.latency_ms), cost].filter(Boolean).join(' · ');
 
   return (
     <div className="stage stage1">

@@ -2,7 +2,8 @@
  * React context carrying the Mese catalog index so badges and names resolve anywhere in the tree.
  */
 import { createContext, useContext } from 'react';
-import { describeModel } from './models.js';
+import { isPlanBilled } from './billing.js';
+import { describeModel, usesPlan } from './models.js';
 
 /** @type {import('react').Context<{index: Map<string, object>|null, adminUrl: string|null}>} */
 export const CatalogContext = createContext({ index: null, adminUrl: null });
@@ -24,4 +25,16 @@ export function useModelInfo(id, hint = null) {
 export function useNameOf(hints = null) {
   const { index } = useContext(CatalogContext);
   return (id) => describeModel(id, { index, hint: hints ? hints.get(id) || null : null }).displayName;
+}
+
+/**
+ * ChatGPT-plan resolver: `isPlan(id)` for one call's cost label ("$0 (plan)"), `anyPlan(ids)` for a run total.
+ * @param {Map<string, object>|null} [hints] e.g. snapshotHints(message.council_snapshot)
+ */
+export function usePlanOf(hints = null) {
+  const { index } = useContext(CatalogContext);
+  return {
+    isPlan: (id) => isPlanBilled(describeModel(id, { index, hint: hints ? hints.get(id) || null : null })),
+    anyPlan: (ids) => usesPlan(ids, { index, hints }),
+  };
 }

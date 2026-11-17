@@ -45,9 +45,13 @@ function snapshotOf(state) {
       provider_id: m.providerId,
       node_id: m.nodeId,
       can_rank: m.canRank,
+      billing: m.billing ?? null,
     })),
     chairman: chair
-      ? { id: chair.modelId, display_name: chair.displayName, kind: chair.kind, provider_id: chair.providerId, node_id: chair.nodeId }
+      ? {
+        id: chair.modelId, display_name: chair.displayName, kind: chair.kind, provider_id: chair.providerId, node_id: chair.nodeId,
+        billing: chair.billing ?? null,
+      }
       : null,
   };
 }

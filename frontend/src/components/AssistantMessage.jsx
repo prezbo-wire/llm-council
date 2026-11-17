@@ -1,7 +1,8 @@
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
-import { useNameOf } from '../council/CatalogContext.js';
+import ErrorAction from './ErrorAction';
+import { useNameOf, usePlanOf } from '../council/CatalogContext.js';
 import { snapshotHints } from '../council/models.js';
 import { formatCost, formatTokens, humanizeError, isUnfinishedTurn, stage2SkipText, turnStatusBadge } from '../council/format.js';
 import './AssistantMessage.css';
@@ -29,6 +30,7 @@ function FailureNotice({ failures, hints }) {
                 {title}
               </span>
               {failure.code && <span className="failure-code">{failure.code}</span>}
+              <ErrorAction code={failure.code} compact />
             </li>
           );
         })}
@@ -37,10 +39,13 @@ function FailureNotice({ failures, hints }) {
   );
 }
 
-function TurnUsage({ usage, status }) {
+/** Turn total; "$0 (plan)" for the part billed to the ChatGPT plan (from the council snapshot). */
+function TurnUsage({ usage, status, hints, snapshot }) {
+  const { anyPlan } = usePlanOf(hints);
   const badge = turnStatusBadge(status);
   if (!usage && !badge) return null;
-  const cost = usage ? formatCost(usage.cost_usd) : null;
+  const ids = snapshot ? [...(snapshot.members || []), snapshot.chairman].map((m) => m && m.id) : [];
+  const cost = usage ? formatCost(usage.cost_usd, { plan: anyPlan(ids) }) : null;
   const total = usage ? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) : 0;
   const parts = [];
   if (cost) parts.push(`Cost ${cost}`);
@@ -82,7 +87,7 @@ export default function AssistantMessage({ message }) {
         hints={hints}
       />
       {message.stage3 && <Stage3 finalResponse={message.stage3} hints={hints} usage={message.usage} />}
-      <TurnUsage usage={message.usage} status={message.status} />
+      <TurnUsage usage={message.usage} status={message.status} hints={hints} snapshot={message.council_snapshot} />
     </div>
   );
 }

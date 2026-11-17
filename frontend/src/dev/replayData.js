@@ -12,11 +12,13 @@ const SPARK = { id: 'spark', name: 'DGX Spark · Ollama', runtime: 'ollama', hos
 const SPARK_VLLM = { id: 'spark-vllm', name: 'DGX Spark · vLLM', runtime: 'vllm', host_id: 'spark' };
 const SPARK_LLAMA = { id: 'spark-llama', name: 'DGX Spark · llama.cpp', runtime: 'llamacpp_router', host_id: 'spark' };
 
-function cloud(id, name, provider, price, { verified = false, tags = [], available = true, reason = null, context = null } = {}) {
+function cloud(id, name, provider, price, {
+  verified = false, tags = [], available = true, reason = null, context = null, billing = 'api_key',
+} = {}) {
   return {
     id, name, kind: 'cloud', provider, node: null, available, unavailable_reason: reason, load_state: null, residency: null,
     can_rank: true, can_chair: true, context_length: context, size_bytes: null,
-    price_per_mtok: { input: price[0], output: price[1] }, price_verified: verified, tags, lineage: null,
+    price_per_mtok: { input: price[0], output: price[1] }, price_verified: verified, billing, tags, lineage: null,
   };
 }
 
@@ -29,7 +31,7 @@ function local(id, name, node, { load = 'loaded', size = null, context = 32768, 
   return {
     id, name, kind: 'local', provider: null, node, available, unavailable_reason: reason, load_state: load, residency: res,
     can_rank: true, can_chair: true, context_length: context, size_bytes: size,
-    price_per_mtok: null, price_verified: null, tags, lineage: null,
+    price_per_mtok: null, price_verified: null, billing: 'local', tags, lineage: null,
   };
 }
 
@@ -57,8 +59,12 @@ export const REPLAY_CATALOG = [
     id: 'ft/legal-qwen-v3', name: 'Legal Qwen v3', kind: 'custom', provider: null, node: SPARK, available: true,
     unavailable_reason: null, load_state: 'unloaded', residency: residency('on_demand', 16.5), can_rank: false,
     can_chair: false, context_length: 32768, size_bytes: 17179869184, price_per_mtok: null, price_verified: null,
-    tags: ['fine-tune'], lineage: { name: 'legal-qwen', version: 'v3' },
+    billing: 'local', tags: ['fine-tune'], lineage: { name: 'legal-qwen', version: 'v3' },
   },
+  // Billed to the user's ChatGPT plan (no USD price); listed but paused after a usage limit.
+  cloud('chatgpt/gpt-6.1-sol', 'GPT-6.1 Sol (ChatGPT plan)', { id: 'chatgpt', name: 'ChatGPT plan' }, [0, 0], {
+    verified: null, tags: ['frontier', 'plan'], available: false, reason: 'plan_limited', context: 500000, billing: 'chatgpt_plan',
+  }),
 ];
 
 export const REPLAY_ADMIN_URL = 'http://127.0.0.1:8791/admin/';

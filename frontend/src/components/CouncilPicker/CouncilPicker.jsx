@@ -17,6 +17,7 @@ import {
   matchesFilter,
   matchesSearch,
   planTurnLine,
+  planUsageNote,
   sortForPicker,
 } from '../../council/models.js';
 import { usePlanWarnings } from '../../hooks/usePlanWarnings.js';
@@ -61,7 +62,8 @@ function CatalogStatus({ catalog, onRetry }) {
 /**
  * Per-conversation council picker (§I.9). Collapsed: member chips, chair, "Change", and a note that
  * changes apply to the next question. Expanded: presets, All/Local/Cloud filter, search and rows.
- * Both show the plan's warnings and its turn line ("Local: no model loads", from `plan.turn`).
+ * Both show the plan's warnings, its turn line ("Local: no model loads", from `plan.turn`) and, while a
+ * member or the chair is billed to the ChatGPT plan, "Using ChatGPT plan · Manage usage".
  */
 export default function CouncilPicker({
   catalog,
@@ -81,8 +83,9 @@ export default function CouncilPicker({
   const [query, setQuery] = useState('');
   // What the picker showed when it was opened, and whether the user changed anything since (LEAD-1).
   const session = useRef({ openedWith: null, edited: false });
-  const { adminUrl } = useCatalog();
+  const { adminUrl, index } = useCatalog();
   const nameOf = useNameOf();
+  const planNote = planUsageNote(draft, index);
   const planEnabled = Boolean(validation.valid && catalog.status === 'ready' && !disabled);
   // The warning lines, plus the whole response for the current draft: the turn line and the "CPU offload" pills.
   const plan = usePlanWarnings(onPlan || null, draft, planEnabled, validation.unavailable);
@@ -121,6 +124,14 @@ export default function CouncilPicker({
         <span className="picker-problem">{validation.problems.join(' · ')}</span>
       ) : (
         <span className="picker-note">Changes apply to the next question.</span>
+      )}
+      {planNote && (
+        <span className="picker-plan">
+          {planNote.text} ·{' '}
+          <a href={planNote.action.href} target="_blank" rel="noopener noreferrer">
+            {planNote.action.label}
+          </a>
+        </span>
       )}
       {turnLine && <span className={`picker-turn turn-${turnLine.tone}`}>{turnLine.text}</span>}
       {validation.unavailable.length > 0 && (
